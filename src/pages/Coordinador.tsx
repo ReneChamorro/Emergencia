@@ -12,6 +12,8 @@ import {
 } from "@/lib/domain";
 import { StaffLayout } from "@/components/StaffLayout";
 import { CaseDetailDialog } from "@/components/coordinator/CaseDetailDialog";
+import { CalendarioTab } from "@/components/coordinator/CalendarioTab";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
@@ -91,15 +93,22 @@ export default function Coordinador() {
 
   return (
     <StaffLayout
-      title="Bandeja de casos"
-      subtitle="Revisa, prioriza y asigna las solicitudes de apoyo."
-      actions={
-        <Button variant="outline" size="sm" onClick={() => void load()}>
-          <RefreshCw className="size-4" /> Actualizar
-        </Button>
-      }
+      title="Panel de coordinacion"
+      subtitle="Gestiona los casos y la agenda de atenciones."
     >
-      {/* Resumen */}
+      <Tabs defaultValue="casos">
+        <TabsList className="mb-6">
+          <TabsTrigger value="casos">Casos</TabsTrigger>
+          <TabsTrigger value="calendario">Calendario</TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="casos">
+          <div className="mb-4 flex justify-end">
+            <Button variant="outline" size="sm" onClick={() => void load()}>
+              <RefreshCw className="size-4" /> Actualizar
+            </Button>
+          </div>
+          {/* Resumen */}
       <div className="mb-5 grid gap-3 sm:grid-cols-3">
         <StatCard label="Casos nuevos" value={stats.nuevos} icon={<Inbox />} />
         <StatCard
@@ -227,14 +236,20 @@ export default function Coordinador() {
         </Card>
       )}
 
-      <CaseDetailDialog
-        caseItem={selected}
-        professionals={professionals}
-        onOpenChange={(open) => {
-          if (!open) setSelected(null);
-        }}
-        onSaved={() => void load()}
-      />
+          <CaseDetailDialog
+            caseItem={selected}
+            professionals={professionals}
+            onOpenChange={(open) => {
+              if (!open) setSelected(null);
+            }}
+            onSaved={() => void load()}
+          />
+        </TabsContent>
+
+        <TabsContent value="calendario">
+          <CalendarioTab />
+        </TabsContent>
+      </Tabs>
     </StaffLayout>
   );
 }
