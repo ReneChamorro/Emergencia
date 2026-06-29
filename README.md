@@ -18,8 +18,8 @@ Atención **focalizada en crisis** (1 a 3 contactos iniciales), no terapia indef
 - **Coordinador ("secretaria"):** revisa la bandeja, fija urgencia, asigna profesional y agenda citas (`/coordinador`).
 - **Profesional:** ve solo sus casos asignados, registra contactos y actualiza el estado (`/profesional`).
 
-> La **primera cuenta** que se registra queda como **coordinadora** automáticamente.
-> Las siguientes se crean como **profesionales** (un coordinador puede cambiar el rol).
+> Por seguridad, **todas las cuentas nuevas se crean como `professional`**.
+> El primer coordinador se promueve manualmente una vez (ver paso 2).
 
 ## Puesta en marcha
 
@@ -32,10 +32,21 @@ pnpm install
 ### 2. Crear el proyecto de Supabase y aplicar el esquema
 
 1. Crea un proyecto en [supabase.com](https://supabase.com).
-2. En el panel de Supabase, abre **SQL Editor** y ejecuta el contenido de
-   [`supabase/migrations/0001_init.sql`](supabase/migrations/0001_init.sql).
-   Esto crea las tablas (`profiles`, `cases`, `appointments`, `case_events`),
-   los índices, las políticas de RLS y el trigger de creación de perfil.
+2. En el panel de Supabase, abre **SQL Editor** y ejecuta **en orden**:
+   1. [`supabase/migrations/0001_init.sql`](supabase/migrations/0001_init.sql) — tablas
+      (`profiles`, `cases`, `appointments`, `case_events`), índices, RLS y trigger.
+   2. [`supabase/migrations/0002_security.sql`](supabase/migrations/0002_security.sql) —
+      endurecimiento: límites de longitud/rango, intake anónimo restringido, lectura de
+      perfiles limitada, y bloqueo de escalada de privilegios. Es idempotente (seguro de
+      re-ejecutar).
+Luego **promueve al primer coordinador** (una vez). Regístrate primero en `/login`
+con ese correo para que exista la cuenta, y ejecuta en el SQL Editor:
+
+```sql
+update public.profiles
+set role = 'coordinator'
+where id = (select id from auth.users where email = 'TU-CORREO@ejemplo.com');
+```
 
 ### 3. Configurar variables de entorno
 
@@ -69,6 +80,39 @@ Abre <http://localhost:5173>.
 
 Ver [`supabase/migrations/0001_init.sql`](supabase/migrations/0001_init.sql) y los tipos en
 [`src/types/database.ts`](src/types/database.ts).
+
+## Seguridad
+
+El modelo de datos es sensible (salud mental), así que la seguridad se aplica en
+**varias capas**:
+
+- **RLS (Postgres) como fuente de verdad.** El cliente solo lleva la `anon key`
+  (pública por diseño). El acceso real lo deciden las políticas, no el frontend:
+  - El **anónimo** solo puede *insertar* solicitudes nuevas (`status='nuevo'`, sin
+    asignar, sin notas); no puede leer ningún caso.
+  - El **profesional** solo ve y edita los casos asignados a él.
+  - El **coordinador** ve y gestiona todo.
+- **Anti escalada de privilegios:** un profesional no puede ascenderse a coordinador
+  (trigger en `profiles`). El primer coordinador se promueve a mano una vez.
+- **Anti fuga de PII:** la lista de perfiles (teléfonos, especialidad) solo es legible
+  por coordinadores y por el propio usuario.
+- **Sanitización + validación** de todos los campos del intake con `zod`
+  ([`src/lib/validation.ts`](src/lib/validation.ts)): se quitan caracteres de control,
+  se limita la longitud y se valida el formato del teléfono. La BD repite los mismos
+  límites como `CHECK` (defensa en profundidad).
+- **Freno de abuso:** máx. 5 solicitudes por número de WhatsApp por hora.
+- **XSS:** React escapa todo el contenido; el único enlace con datos del usuario
+  (`wa.me`) se construye solo con dígitos.
+
+### Limitaciones conocidas / recomendado para producción
+
+- **Rate-limit por IP / CAPTCHA:** el freno actual es por número y no detiene un
+  flooding con números variados. Para producción, poner un CAPTCHA (p. ej. Cloudflare
+  Turnstile) en el formulario o un proxy con rate-limit por IP delante del REST.
+- **Registro público:** cualquiera puede crear una cuenta de profesional. Una vez
+  formado el equipo, conviene **desactivar el signup público** en *Authentication →
+  Providers* de Supabase (o exigir confirmación por correo).
+- Mantener el MCP de Supabase en **read-only** salvo cuando se necesite aplicar cambios.
 
 ## Scripts
 

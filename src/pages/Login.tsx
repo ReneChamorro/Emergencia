@@ -82,7 +82,7 @@ export default function Login() {
           <CardDescription>
             {mode === "signin"
               ? "Coordinadores y profesionales voluntarios."
-              : "La primera cuenta registrada sera coordinadora; las siguientes seran profesionales (un coordinador puede cambiar el rol)."}
+              : "Las cuentas nuevas se crean como profesionales. Un coordinador (o el administrador de la base de datos) asigna el rol de coordinacion."}
           </CardDescription>
         </CardHeader>
         <CardContent>

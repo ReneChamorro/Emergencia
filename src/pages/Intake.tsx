@@ -3,6 +3,7 @@ import { Link } from "react-router-dom";
 import { CheckCircle2, HeartPulse, ChevronLeft, ChevronRight } from "lucide-react";
 import { supabase, isSupabaseConfigured } from "@/lib/supabase";
 import { suggestUrgency, isHighRisk } from "@/lib/domain";
+import { intakeSchema, LIMITS } from "@/lib/validation";
 import type { CaseIntakeInput } from "@/types/database";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -114,23 +115,48 @@ export default function Intake() {
       );
       return;
     }
-    setSubmitting(true);
-    const payload: CaseIntakeInput = {
-      patient_name: form.patient_name.trim(),
-      patient_age: form.patient_age ? Number(form.patient_age) : null,
-      city: form.city.trim() || null,
-      whatsapp: form.whatsapp.trim(),
-      main_reason: form.main_reason.trim(),
-      availability: form.availability.trim() || null,
+
+    // Validacion + sanitizacion (zod). La BD aplica los mismos limites como
+    // defensa en profundidad (ver migracion 0002_security.sql).
+    const parsed = intakeSchema.safeParse({
+      patient_name: form.patient_name,
+      patient_age: form.patient_age,
+      city: form.city,
+      whatsapp: form.whatsapp,
+      main_reason: form.main_reason,
+      availability: form.availability,
       in_danger: form.in_danger === true,
       self_harm_ideation: form.self_harm_ideation === true,
       is_alone: form.is_alone === true,
       lost_family_home: form.lost_family_home === true,
+      consent: form.consent,
+    });
+
+    if (!parsed.success) {
+      setError(parsed.error.issues[0]?.message ?? "Revisa los datos del formulario.");
+      return;
+    }
+
+    setSubmitting(true);
+    const d = parsed.data;
+    const payload: CaseIntakeInput = {
+      patient_name: d.patient_name,
+      patient_age: d.patient_age,
+      city: d.city,
+      whatsapp: d.whatsapp,
+      main_reason: d.main_reason,
+      availability: d.availability,
+      in_danger: d.in_danger,
+      self_harm_ideation: d.self_harm_ideation,
+      is_alone: d.is_alone,
+      lost_family_home: d.lost_family_home,
+      // status y assigned_professional_id se dejan en los DEFAULT del servidor;
+      // el anon no puede fijarlos (lo impide la politica RLS endurecida).
       urgency: suggestUrgency({
-        in_danger: form.in_danger === true,
-        self_harm_ideation: form.self_harm_ideation === true,
-        is_alone: form.is_alone === true,
-        lost_family_home: form.lost_family_home === true,
+        in_danger: d.in_danger,
+        self_harm_ideation: d.self_harm_ideation,
+        is_alone: d.is_alone,
+        lost_family_home: d.lost_family_home,
       }),
       consent: true,
     };
@@ -224,6 +250,7 @@ export default function Intake() {
                   value={form.patient_name}
                   onChange={(e) => update("patient_name", e.target.value)}
                   autoComplete="name"
+                  maxLength={LIMITS.name}
                 />
               </div>
               <div className="grid gap-4 sm:grid-cols-2">
@@ -246,6 +273,7 @@ export default function Intake() {
                     value={form.city}
                     onChange={(e) => update("city", e.target.value)}
                     autoComplete="address-level2"
+                    maxLength={LIMITS.city}
                   />
                 </div>
               </div>
@@ -259,6 +287,7 @@ export default function Intake() {
                   value={form.whatsapp}
                   onChange={(e) => update("whatsapp", e.target.value)}
                   autoComplete="tel"
+                  maxLength={LIMITS.whatsapp}
                 />
                 <p className="text-xs text-muted-foreground">
                   Por aqui te contactara el profesional.
@@ -279,6 +308,7 @@ export default function Intake() {
                   onChange={(e) => update("main_reason", e.target.value)}
                   placeholder="Puedes escribir lo que sientes o lo que esta pasando."
                   className="min-h-[120px]"
+                  maxLength={LIMITS.reason}
                 />
               </div>
               <div className="space-y-1.5">
@@ -290,6 +320,7 @@ export default function Intake() {
                   value={form.availability}
                   onChange={(e) => update("availability", e.target.value)}
                   placeholder="Ej: tardes despues de las 3pm, fines de semana..."
+                  maxLength={LIMITS.availability}
                 />
               </div>
             </div>
