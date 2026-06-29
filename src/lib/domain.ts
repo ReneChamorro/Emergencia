@@ -1,32 +1,14 @@
-import type { CaseStatus, Urgency, ApptStatus, ApptModality } from "@/types/database";
-
-// ---------- Triaje ----------
-export interface TriageAnswers {
-  in_danger: boolean;
-  self_harm_ideation: boolean;
-  is_alone: boolean;
-  lost_family_home: boolean;
-}
-
-/**
- * Urgencia sugerida a partir de las respuestas de triaje.
- * - alta: peligro inmediato o ideacion de autolesion.
- * - media: aislamiento o perdidas materiales/familiares.
- * - baja: ninguno de los anteriores.
- * La urgencia final siempre es editable por el coordinador.
- */
-export function suggestUrgency(a: TriageAnswers): Urgency {
-  if (a.in_danger || a.self_harm_ideation) return "alta";
-  if (a.is_alone || a.lost_family_home) return "media";
-  return "baja";
-}
-
-/** True si el caso requiere el banner de crisis / derivacion inmediata. */
-export function isHighRisk(a: TriageAnswers): boolean {
-  return a.in_danger || a.self_harm_ideation;
-}
+import type {
+  CaseStatus,
+  Urgency,
+  ApptStatus,
+  ApptModality,
+  PrefModality,
+  StableConn,
+} from "@/types/database";
 
 // ---------- Etiquetas y estilos ----------
+
 export const URGENCY_LABEL: Record<Urgency, string> = {
   alta: "Alta",
   media: "Media",
@@ -65,6 +47,19 @@ export const MODALITY_LABEL: Record<ApptModality, string> = {
   llamada: "Llamada",
   videollamada: "Videollamada",
   presencial: "Presencial",
+};
+
+export const PREF_MODALITY_LABEL: Record<PrefModality, string> = {
+  videollamada: "Videollamada",
+  llamada: "Llamada telefonica",
+  whatsapp_audio: "WhatsApp / audio",
+  cualquiera: "Cualquiera",
+};
+
+export const STABLE_CONN_LABEL: Record<StableConn, string> = {
+  si: "Si",
+  no: "No",
+  a_veces: "A veces",
 };
 
 export const APPT_STATUS_LABEL: Record<ApptStatus, string> = {

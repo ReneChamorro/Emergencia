@@ -1,21 +1,10 @@
-// Tipos del dominio. Reflejan el esquema de supabase/migrations/0001_init.sql.
-// Si conectas el proyecto Supabase, puedes regenerarlos con:
-//   supabase gen types typescript --project-id <ref> > src/types/database.ts
-
-export type UserRole = "coordinator" | "professional";
-export type Urgency = "alta" | "media" | "baja";
-export type CaseStatus =
-  | "nuevo"
-  | "asignado"
-  | "en_contacto"
-  | "cerrado"
-  | "derivado";
-export type ApptModality = "llamada" | "videollamada" | "presencial";
-export type ApptStatus =
-  | "programada"
-  | "realizada"
-  | "cancelada"
-  | "no_asistio";
+export type UserRole      = "coordinator" | "professional";
+export type Urgency       = "alta" | "media" | "baja";
+export type CaseStatus    = "nuevo" | "asignado" | "en_contacto" | "cerrado" | "derivado";
+export type ApptModality  = "llamada" | "videollamada" | "presencial";
+export type ApptStatus    = "programada" | "realizada" | "cancelada" | "no_asistio";
+export type PrefModality  = "videollamada" | "llamada" | "whatsapp_audio" | "cualquiera";
+export type StableConn    = "si" | "no" | "a_veces";
 
 export interface Profile {
   id: string;
@@ -30,25 +19,27 @@ export interface Profile {
 export interface Case {
   id: string;
   created_at: string;
+  // Datos del paciente
   patient_name: string;
   patient_age: number | null;
   city: string | null;
   whatsapp: string;
-  main_reason: string;
+  email: string | null;
+  // Modalidad
+  preferred_modality: PrefModality;
+  has_stable_conn: StableConn | null;
+  // Disponibilidad
+  available_days: string | null;
+  available_times: string | null;
   availability: string | null;
-  in_danger: boolean;
-  self_harm_ideation: boolean;
-  is_alone: boolean;
-  lost_family_home: boolean;
+  // Observaciones paciente
+  observations: string | null;
+  // Gestion
   urgency: Urgency;
   consent: boolean;
   status: CaseStatus;
   assigned_professional_id: string | null;
   notes: string | null;
-}
-
-export interface CaseWithProfessional extends Case {
-  assigned_professional: Pick<Profile, "id" | "full_name"> | null;
 }
 
 export interface Appointment {
@@ -64,23 +55,19 @@ export interface Appointment {
   created_at: string;
 }
 
-export interface AppointmentWithCase extends Appointment {
-  case: Case | null;
-}
-
-// Payload del formulario publico de intake (lo que inserta anon).
+// Payload del formulario publico de agendamiento.
 export type CaseIntakeInput = Pick<
   Case,
   | "patient_name"
   | "patient_age"
   | "city"
   | "whatsapp"
-  | "main_reason"
+  | "email"
+  | "preferred_modality"
+  | "has_stable_conn"
+  | "available_days"
+  | "available_times"
   | "availability"
-  | "in_danger"
-  | "self_harm_ideation"
-  | "is_alone"
-  | "lost_family_home"
-  | "urgency"
+  | "observations"
   | "consent"
 >;

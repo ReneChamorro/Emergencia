@@ -1,30 +1,34 @@
-import { useMemo, useState } from "react";
+import { useState } from "react";
 import { Link } from "react-router-dom";
 import { CheckCircle2, HeartPulse, ChevronLeft, ChevronRight } from "lucide-react";
 import { supabase, isSupabaseConfigured } from "@/lib/supabase";
-import { suggestUrgency, isHighRisk } from "@/lib/domain";
 import { intakeSchema, LIMITS } from "@/lib/validation";
-import type { CaseIntakeInput } from "@/types/database";
+import type { CaseIntakeInput, PrefModality, StableConn } from "@/types/database";
+import { PREF_MODALITY_LABEL, STABLE_CONN_LABEL } from "@/lib/domain";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent } from "@/components/ui/card";
 import { Spinner } from "@/components/ui/spinner";
-import { CrisisBanner } from "@/components/CrisisBanner";
-import { YesNoField } from "@/components/YesNoField";
+import { cn } from "@/lib/utils";
+
+const DAYS = ["Lunes", "Martes", "Miercoles", "Jueves", "Viernes", "Sabado", "Domingo", "Cualquier dia"];
+const TIMES = ["Manana", "Mediodia", "Tarde", "Noche", "Cualquier horario"];
+const STEPS = ["Tus datos", "Modalidad", "Disponibilidad", "Confirmar"];
 
 interface FormState {
   patient_name: string;
   patient_age: string;
   city: string;
   whatsapp: string;
-  main_reason: string;
+  email: string;
+  preferred_modality: PrefModality | "";
+  has_stable_conn: StableConn | "";
+  available_days: string[];
+  available_times: string[];
   availability: string;
-  in_danger: boolean | null;
-  self_harm_ideation: boolean | null;
-  is_alone: boolean | null;
-  lost_family_home: boolean | null;
+  observations: string;
   consent: boolean;
 }
 
@@ -33,16 +37,23 @@ const EMPTY: FormState = {
   patient_age: "",
   city: "",
   whatsapp: "",
-  main_reason: "",
+  email: "",
+  preferred_modality: "",
+  has_stable_conn: "",
+  available_days: [],
+  available_times: [],
   availability: "",
-  in_danger: null,
-  self_harm_ideation: null,
-  is_alone: null,
-  lost_family_home: null,
+  observations: "",
   consent: false,
 };
 
-const STEPS = ["Tus datos", "Tu situacion", "Unas preguntas", "Confirmar"];
+function toggleItem(arr: string[], item: string): string[] {
+  if (item === "Cualquier dia" || item === "Cualquier horario") return [item];
+  const filtered = arr.filter((d) => d !== "Cualquier dia" && d !== "Cualquier horario");
+  return filtered.includes(item)
+    ? filtered.filter((d) => d !== item)
+    : [...filtered, item];
+}
 
 export default function Intake() {
   const [step, setStep] = useState(0);
@@ -55,80 +66,54 @@ export default function Intake() {
     setForm((f) => ({ ...f, [key]: value }));
   }
 
-  const triageAnswered =
-    form.in_danger !== null &&
-    form.self_harm_ideation !== null &&
-    form.is_alone !== null &&
-    form.lost_family_home !== null;
-
-  const highRisk = useMemo(
-    () =>
-      isHighRisk({
-        in_danger: form.in_danger === true,
-        self_harm_ideation: form.self_harm_ideation === true,
-        is_alone: form.is_alone === true,
-        lost_family_home: form.lost_family_home === true,
-      }),
-    [form.in_danger, form.self_harm_ideation, form.is_alone, form.lost_family_home]
-  );
-
   function validateStep(s: number): string | null {
     if (s === 0) {
       if (!form.patient_name.trim()) return "Por favor indica tu nombre.";
-      if (!form.whatsapp.trim())
-        return "Necesitamos un numero de WhatsApp para contactarte.";
+      if (!form.whatsapp.trim()) return "Necesitamos un numero de WhatsApp para contactarte.";
     }
     if (s === 1) {
-      if (!form.main_reason.trim())
-        return "Cuentanos brevemente en que necesitas apoyo.";
-    }
-    if (s === 2 && !triageAnswered) {
-      return "Por favor responde las cuatro preguntas.";
+      if (!form.preferred_modality) return "Selecciona la via de atencion que prefieres.";
     }
     return null;
   }
 
   function next() {
     const err = validateStep(step);
-    if (err) {
-      setError(err);
-      return;
-    }
+    if (err) { setError(err); return; }
     setError(null);
     setStep((s) => Math.min(s + 1, STEPS.length - 1));
+    window.scrollTo({ top: 0, behavior: "smooth" });
   }
 
   function back() {
     setError(null);
     setStep((s) => Math.max(s - 1, 0));
+    window.scrollTo({ top: 0, behavior: "smooth" });
   }
 
   async function submit() {
     setError(null);
     if (!form.consent) {
-      setError("Debes aceptar el consentimiento para continuar.");
+      setError("Debes autorizar el contacto para continuar.");
       return;
     }
     if (!isSupabaseConfigured) {
-      setError(
-        "La aplicacion aun no esta conectada a la base de datos. Avisa al equipo coordinador."
-      );
+      setError("La aplicacion aun no esta conectada a la base de datos. Avisa al equipo coordinador.");
       return;
     }
 
-    // Validacion + sanitizacion (zod). La BD aplica los mismos limites como
-    // defensa en profundidad (ver migracion 0002_security.sql).
     const parsed = intakeSchema.safeParse({
       patient_name: form.patient_name,
       patient_age: form.patient_age,
       city: form.city,
       whatsapp: form.whatsapp,
-      main_reason: form.main_reason,
+      email: form.email,
+      preferred_modality: form.preferred_modality || "cualquiera",
+      has_stable_conn: form.has_stable_conn || null,
+      available_days: form.available_days.join(", "),
+      available_times: form.available_times.join(", "),
       availability: form.availability,
-      in_danger: form.in_danger === true,
-      self_harm_ideation: form.self_harm_ideation === true,
-      is_alone: form.is_alone === true,
-      lost_family_home: form.lost_family_home === true,
+      observations: form.observations,
       consent: form.consent,
     });
 
@@ -144,29 +129,24 @@ export default function Intake() {
       patient_age: d.patient_age,
       city: d.city,
       whatsapp: d.whatsapp,
-      main_reason: d.main_reason,
+      email: d.email,
+      preferred_modality: d.preferred_modality,
+      has_stable_conn: d.has_stable_conn ?? null,
+      available_days: d.available_days,
+      available_times: d.available_times,
       availability: d.availability,
-      in_danger: d.in_danger,
-      self_harm_ideation: d.self_harm_ideation,
-      is_alone: d.is_alone,
-      lost_family_home: d.lost_family_home,
-      // status y assigned_professional_id se dejan en los DEFAULT del servidor;
-      // el anon no puede fijarlos (lo impide la politica RLS endurecida).
-      urgency: suggestUrgency({
-        in_danger: d.in_danger,
-        self_harm_ideation: d.self_harm_ideation,
-        is_alone: d.is_alone,
-        lost_family_home: d.lost_family_home,
-      }),
+      observations: d.observations,
       consent: true,
     };
 
     const { error: insertError } = await supabase.from("cases").insert(payload);
     setSubmitting(false);
     if (insertError) {
-      setError(
-        "No pudimos registrar tu solicitud. Intenta de nuevo o contacta al equipo."
-      );
+      if (insertError.message.includes("Demasiadas solicitudes")) {
+        setError("Ya tienes varias solicitudes recientes. El equipo coordinador te contactara pronto.");
+      } else {
+        setError("No pudimos registrar tu solicitud. Intenta de nuevo o contacta al equipo.");
+      }
       return;
     }
     setDone(true);
@@ -177,33 +157,20 @@ export default function Intake() {
     return (
       <Shell>
         <Card className="animate-fade-in">
-          <CardContent className="space-y-4 p-8 text-center">
-            <CheckCircle2
-              className="mx-auto size-14 text-success"
-              aria-hidden="true"
-            />
-            <h2 className="text-xl font-bold text-foreground">
-              Tu solicitud quedo registrada
-            </h2>
-            <div className="space-y-3 text-sm text-muted-foreground">
+          <CardContent className="space-y-5 p-8 text-center">
+            <CheckCircle2 className="mx-auto size-14 text-success" aria-hidden="true" />
+            <h2 className="text-xl font-bold text-foreground">Solicitud registrada</h2>
+            <div className="space-y-2 text-sm text-muted-foreground text-left rounded-md border border-border bg-muted/30 p-4">
+              <p className="font-medium text-foreground">Gracias por completar tus datos.</p>
               <p>
-                Un profesional voluntario revisara tu caso y te contactara por
-                WhatsApp al numero que indicaste. La atencion se prioriza segun la
-                urgencia.
+                El equipo coordinador revisara tu disponibilidad y te contactara para confirmar
+                el dia, la hora y el profesional asignado.
               </p>
-              <p>
-                Recuerda: este es un apoyo psicologico focalizado en crisis (1 a 3
-                contactos iniciales), no terapia indefinida.
-              </p>
+              <p>Esta atencion forma parte de una iniciativa humanitaria y <strong>sin costo</strong>.</p>
             </div>
-            {highRisk && <CrisisBanner />}
             <Button
               variant="outline"
-              onClick={() => {
-                setForm(EMPTY);
-                setStep(0);
-                setDone(false);
-              }}
+              onClick={() => { setForm(EMPTY); setStep(0); setDone(false); }}
             >
               Registrar otra solicitud
             </Button>
@@ -219,20 +186,8 @@ export default function Intake() {
       <ol className="mb-5 flex items-center gap-2" aria-label="Progreso">
         {STEPS.map((label, i) => (
           <li key={label} className="flex flex-1 flex-col gap-1">
-            <div
-              className={
-                "h-1.5 rounded-full transition-colors " +
-                (i <= step ? "bg-accent" : "bg-border")
-              }
-            />
-            <span
-              className={
-                "text-xs " +
-                (i === step
-                  ? "font-medium text-foreground"
-                  : "text-muted-foreground")
-              }
-            >
+            <div className={"h-1.5 rounded-full transition-colors " + (i <= step ? "bg-accent" : "bg-border")} />
+            <span className={"text-xs " + (i === step ? "font-medium text-foreground" : "text-muted-foreground")}>
               {label}
             </span>
           </li>
@@ -241,6 +196,8 @@ export default function Intake() {
 
       <Card className="animate-fade-in">
         <CardContent className="space-y-5 p-6">
+
+          {/* Paso 1: Datos */}
           {step === 0 && (
             <div className="space-y-4">
               <div className="space-y-1.5">
@@ -253,9 +210,35 @@ export default function Intake() {
                   maxLength={LIMITS.name}
                 />
               </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="whatsapp">Numero de WhatsApp *</Label>
+                <Input
+                  id="whatsapp"
+                  type="tel"
+                  inputMode="tel"
+                  placeholder="+58 412 1234567"
+                  value={form.whatsapp}
+                  onChange={(e) => update("whatsapp", e.target.value)}
+                  autoComplete="tel"
+                  maxLength={LIMITS.whatsapp}
+                />
+                <p className="text-xs text-muted-foreground">El equipo te contactara por aqui.</p>
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="email">Correo electronico (opcional)</Label>
+                <Input
+                  id="email"
+                  type="email"
+                  inputMode="email"
+                  value={form.email}
+                  onChange={(e) => update("email", e.target.value)}
+                  autoComplete="email"
+                  maxLength={LIMITS.email}
+                />
+              </div>
               <div className="grid gap-4 sm:grid-cols-2">
                 <div className="space-y-1.5">
-                  <Label htmlFor="age">Edad</Label>
+                  <Label htmlFor="age">Edad (opcional)</Label>
                   <Input
                     id="age"
                     type="number"
@@ -267,7 +250,7 @@ export default function Intake() {
                   />
                 </div>
                 <div className="space-y-1.5">
-                  <Label htmlFor="city">Ciudad</Label>
+                  <Label htmlFor="city">Ciudad / estado (opcional)</Label>
                   <Input
                     id="city"
                     value={form.city}
@@ -277,131 +260,180 @@ export default function Intake() {
                   />
                 </div>
               </div>
-              <div className="space-y-1.5">
-                <Label htmlFor="whatsapp">WhatsApp *</Label>
-                <Input
-                  id="whatsapp"
-                  type="tel"
-                  inputMode="tel"
-                  placeholder="Ej: +58 412 1234567"
-                  value={form.whatsapp}
-                  onChange={(e) => update("whatsapp", e.target.value)}
-                  autoComplete="tel"
-                  maxLength={LIMITS.whatsapp}
-                />
-                <p className="text-xs text-muted-foreground">
-                  Por aqui te contactara el profesional.
-                </p>
-              </div>
             </div>
           )}
 
+          {/* Paso 2: Modalidad */}
           {step === 1 && (
-            <div className="space-y-4">
+            <div className="space-y-5">
+              <fieldset className="space-y-2">
+                <legend className="text-base font-medium text-foreground">
+                  Por que via puedes recibir la atencion? *
+                </legend>
+                <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                  {(["videollamada", "llamada", "whatsapp_audio", "cualquiera"] as PrefModality[]).map((m) => (
+                    <button
+                      key={m}
+                      type="button"
+                      onClick={() => update("preferred_modality", m)}
+                      className={cn(
+                        "flex h-12 items-center justify-center rounded-md border-2 px-3 text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+                        form.preferred_modality === m
+                          ? "border-accent bg-accent/10 text-accent"
+                          : "border-input bg-background text-foreground hover:bg-secondary"
+                      )}
+                    >
+                      {PREF_MODALITY_LABEL[m]}
+                    </button>
+                  ))}
+                </div>
+              </fieldset>
+
+              <fieldset className="space-y-2">
+                <legend className="text-base font-medium text-foreground">
+                  Tienes conexion estable para una videollamada?
+                </legend>
+                <div className="grid grid-cols-3 gap-2">
+                  {(["si", "no", "a_veces"] as StableConn[]).map((v) => (
+                    <button
+                      key={v}
+                      type="button"
+                      onClick={() => update("has_stable_conn", v)}
+                      className={cn(
+                        "flex h-11 items-center justify-center rounded-md border-2 text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+                        form.has_stable_conn === v
+                          ? "border-accent bg-accent/10 text-accent"
+                          : "border-input bg-background text-foreground hover:bg-secondary"
+                      )}
+                    >
+                      {STABLE_CONN_LABEL[v]}
+                    </button>
+                  ))}
+                </div>
+              </fieldset>
+            </div>
+          )}
+
+          {/* Paso 3: Disponibilidad */}
+          {step === 2 && (
+            <div className="space-y-5">
+              <fieldset className="space-y-2">
+                <legend className="text-base font-medium text-foreground">
+                  Que dias tienes disponibilidad?
+                </legend>
+                <div className="flex flex-wrap gap-2">
+                  {DAYS.map((day) => {
+                    const selected = form.available_days.includes(day);
+                    return (
+                      <button
+                        key={day}
+                        type="button"
+                        onClick={() => update("available_days", toggleItem(form.available_days, day))}
+                        className={cn(
+                          "rounded-full border-2 px-3 py-1.5 text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+                          selected
+                            ? "border-accent bg-accent/10 text-accent"
+                            : "border-input bg-background text-foreground hover:bg-secondary"
+                        )}
+                      >
+                        {day}
+                      </button>
+                    );
+                  })}
+                </div>
+              </fieldset>
+
+              <fieldset className="space-y-2">
+                <legend className="text-base font-medium text-foreground">
+                  En que horario podrias ser atendido/a?
+                </legend>
+                <div className="flex flex-wrap gap-2">
+                  {TIMES.map((t) => {
+                    const selected = form.available_times.includes(t);
+                    return (
+                      <button
+                        key={t}
+                        type="button"
+                        onClick={() => update("available_times", toggleItem(form.available_times, t))}
+                        className={cn(
+                          "rounded-full border-2 px-3 py-1.5 text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+                          selected
+                            ? "border-accent bg-accent/10 text-accent"
+                            : "border-input bg-background text-foreground hover:bg-secondary"
+                        )}
+                      >
+                        {t}
+                      </button>
+                    );
+                  })}
+                </div>
+              </fieldset>
+
               <div className="space-y-1.5">
-                <Label htmlFor="reason">
-                  En que necesitas apoyo? Cuentanos brevemente *
-                </Label>
-                <Textarea
-                  id="reason"
-                  value={form.main_reason}
-                  onChange={(e) => update("main_reason", e.target.value)}
-                  placeholder="Puedes escribir lo que sientes o lo que esta pasando."
-                  className="min-h-[120px]"
-                  maxLength={LIMITS.reason}
-                />
-              </div>
-              <div className="space-y-1.5">
-                <Label htmlFor="availability">
-                  En que horarios podrias recibir una llamada?
-                </Label>
+                <Label htmlFor="availability">Horarios especificos disponibles (opcional)</Label>
                 <Input
                   id="availability"
                   value={form.availability}
                   onChange={(e) => update("availability", e.target.value)}
-                  placeholder="Ej: tardes despues de las 3pm, fines de semana..."
+                  placeholder='Ej: "lunes despues de las 3pm", "cualquier dia despues de las 6pm"'
                   maxLength={LIMITS.availability}
                 />
               </div>
             </div>
           )}
 
-          {step === 2 && (
-            <div className="space-y-5">
-              <p className="text-sm text-muted-foreground">
-                Estas preguntas nos ayudan a dar prioridad a quien mas lo necesita.
-                No hay respuestas correctas o incorrectas.
-              </p>
-              <YesNoField
-                legend="Estas en peligro en este momento?"
-                value={form.in_danger}
-                onChange={(v) => update("in_danger", v)}
-                dangerOnYes
-              />
-              <YesNoField
-                legend="Has tenido ideas de hacerte dano?"
-                value={form.self_harm_ideation}
-                onChange={(v) => update("self_harm_ideation", v)}
-                dangerOnYes
-              />
-              <YesNoField
-                legend="Te encuentras solo o sola ahora?"
-                value={form.is_alone}
-                onChange={(v) => update("is_alone", v)}
-              />
-              <YesNoField
-                legend="Perdiste un familiar, tu vivienda o tu seguridad basica?"
-                value={form.lost_family_home}
-                onChange={(v) => update("lost_family_home", v)}
-              />
-              {highRisk && <CrisisBanner />}
-            </div>
-          )}
-
+          {/* Paso 4: Confirmar */}
           {step === 3 && (
             <div className="space-y-4">
-              <div className="rounded-lg border border-border bg-muted/40 p-4 text-sm">
-                <p className="font-medium text-foreground">Resumen</p>
-                <ul className="mt-2 space-y-1 text-muted-foreground">
-                  <li>
-                    <strong className="text-foreground">Nombre:</strong>{" "}
-                    {form.patient_name || "—"}
-                  </li>
-                  <li>
-                    <strong className="text-foreground">WhatsApp:</strong>{" "}
-                    {form.whatsapp || "—"}
-                  </li>
-                  <li>
-                    <strong className="text-foreground">Motivo:</strong>{" "}
-                    {form.main_reason || "—"}
-                  </li>
-                </ul>
+              {/* Resumen */}
+              <div className="rounded-lg border border-border bg-muted/30 p-4 text-sm space-y-1">
+                <p className="font-medium text-foreground mb-2">Resumen de tu solicitud</p>
+                <Row label="Nombre" value={form.patient_name} />
+                <Row label="WhatsApp" value={form.whatsapp} />
+                {form.email && <Row label="Correo" value={form.email} />}
+                {form.city && <Row label="Ciudad" value={form.city} />}
+                <Row
+                  label="Via de atencion"
+                  value={form.preferred_modality ? PREF_MODALITY_LABEL[form.preferred_modality as PrefModality] : "—"}
+                />
+                {form.available_days.length > 0 && (
+                  <Row label="Dias disponibles" value={form.available_days.join(", ")} />
+                )}
+                {form.available_times.length > 0 && (
+                  <Row label="Horarios" value={form.available_times.join(", ")} />
+                )}
+                {form.availability && <Row label="Detalle horario" value={form.availability} />}
               </div>
 
-              {highRisk && <CrisisBanner />}
+              <div className="space-y-1.5">
+                <Label htmlFor="observations">Observaciones para la agenda (opcional)</Label>
+                <Textarea
+                  id="observations"
+                  value={form.observations}
+                  onChange={(e) => update("observations", e.target.value)}
+                  placeholder='Ej: "solo puedo por llamada", "no tengo privacidad en casa", "prefiero horario nocturno"'
+                  className="min-h-[88px]"
+                  maxLength={LIMITS.observations}
+                />
+              </div>
 
               <label className="flex cursor-pointer items-start gap-3 rounded-md border border-input p-3">
                 <input
                   type="checkbox"
                   checked={form.consent}
                   onChange={(e) => update("consent", e.target.checked)}
-                  className="mt-1 size-5 shrink-0 accent-[hsl(var(--accent))]"
+                  className="mt-0.5 size-5 shrink-0 accent-[hsl(var(--accent))]"
                 />
                 <span className="text-sm text-foreground">
-                  Doy mi consentimiento para ser contactado/a por un profesional
-                  voluntario y para que mis datos se usen unicamente con el fin de
-                  coordinar esta atencion. Entiendo que es un apoyo focalizado en
-                  crisis, no terapia indefinida.
+                  Autorizo al equipo coordinador a contactarme para confirmar mi cita y confirmo
+                  que esta atencion corresponde al Programa Humanitario de Atencion Psicologica.
                 </span>
               </label>
             </div>
           )}
 
           {error && (
-            <p
-              role="alert"
-              className="rounded-md border border-destructive/30 bg-destructive/10 p-2.5 text-sm text-destructive"
-            >
+            <p role="alert" className="rounded-md border border-destructive/30 bg-destructive/10 p-2.5 text-sm text-destructive">
               {error}
             </p>
           )}
@@ -411,9 +443,7 @@ export default function Intake() {
               <Button variant="outline" onClick={back} disabled={submitting}>
                 <ChevronLeft className="size-4" /> Atras
               </Button>
-            ) : (
-              <span />
-            )}
+            ) : <span />}
 
             {step < STEPS.length - 1 ? (
               <Button onClick={next}>
@@ -441,27 +471,35 @@ function Shell({ children }: { children: React.ReactNode }) {
             <HeartPulse className="size-6 text-accent" aria-hidden="true" />
             <span className="font-semibold">Apoyo Psicologico de Emergencia</span>
           </div>
-          <Link
-            to="/login"
-            className="text-sm text-primary-foreground/80 hover:text-primary-foreground hover:underline"
-          >
+          <Link to="/login" className="text-sm text-primary-foreground/80 hover:text-primary-foreground hover:underline">
             Soy del equipo
           </Link>
         </div>
       </header>
-
       <main className="container max-w-2xl py-8">
         <div className="mb-6 text-center">
+          <p className="text-xs font-medium uppercase tracking-widest text-accent mb-1">
+            Programa Humanitario · Sin costo
+          </p>
           <h1 className="text-2xl font-bold tracking-tight text-foreground">
-            Solicita apoyo psicologico
+            Solicitud de cita – Atencion psicologica humanitaria
           </h1>
           <p className="mx-auto mt-2 max-w-prose text-sm text-muted-foreground">
-            Estamos aqui para acompanarte. Completa este formulario breve y un
-            profesional voluntario se pondra en contacto contigo.
+            Completa este formulario para que el equipo coordinador te asigne un horario
+            con un profesional voluntario.
           </p>
         </div>
         {children}
       </main>
+    </div>
+  );
+}
+
+function Row({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="flex gap-2">
+      <span className="w-32 shrink-0 text-muted-foreground">{label}:</span>
+      <span className="text-foreground">{value || "—"}</span>
     </div>
   );
 }

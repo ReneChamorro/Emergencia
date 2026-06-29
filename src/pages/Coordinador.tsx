@@ -25,6 +25,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { AlertTriangle, Inbox, RefreshCw, Search } from "lucide-react";
+// AlertTriangle sigue usandose en StatCard (urgencia alta)
 
 export default function Coordinador() {
   const { professionals } = useProfessionals();
@@ -177,7 +178,6 @@ export default function Coordinador() {
               </thead>
               <tbody>
                 {filtered.map((c) => {
-                  const highRisk = c.in_danger || c.self_harm_ideation;
                   const prof = c.assigned_professional_id
                     ? profMap.get(c.assigned_professional_id)
                     : null;
@@ -196,12 +196,6 @@ export default function Coordinador() {
                     >
                       <td className="px-4 py-3">
                         <div className="flex items-center gap-2 font-medium text-foreground">
-                          {highRisk && (
-                            <AlertTriangle
-                              className="size-4 text-destructive"
-                              aria-label="Riesgo alto"
-                            />
-                          )}
                           {c.patient_name}
                         </div>
                         <div className="text-xs text-muted-foreground">
