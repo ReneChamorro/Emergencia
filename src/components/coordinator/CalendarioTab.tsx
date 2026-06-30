@@ -12,6 +12,7 @@ export function CalendarioTab() {
   const [month, setMonth] = useState(() => new Date());
   const [selectedDay, setSelectedDay] = useState(() => new Date());
   const [scheduleOpen, setScheduleOpen] = useState(false);
+  const [slotPreset, setSlotPreset] = useState<{ professionalId: string; time: string } | null>(null);
 
   const { professionals } = useProfessionals();
   const { byDate, loading, reload } = useCalendarAppointments(month);
@@ -24,6 +25,13 @@ export function CalendarioTab() {
   const dayAvailability = useMemo(
     () => availabilityBlocks.filter((b) => b.day_of_week === dayOfWeek),
     [availabilityBlocks, dayOfWeek]
+  );
+
+  // Dias de la semana (0=lunes...6=domingo) en los que ALGUN profesional tiene
+  // disponibilidad, para marcar el punto azul en la vista de mes.
+  const availabilityDows = useMemo(
+    () => new Set(availabilityBlocks.map((b) => b.day_of_week)),
+    [availabilityBlocks]
   );
 
   return (
@@ -41,6 +49,7 @@ export function CalendarioTab() {
             month={month}
             selectedDay={selectedDay}
             byDate={byDate}
+            availabilityDows={availabilityDows}
             onDaySelect={setSelectedDay}
             onMonthChange={(m) => {
               setMonth(m);
@@ -57,7 +66,14 @@ export function CalendarioTab() {
             appointments={dayAppointments}
             availability={dayAvailability}
             professionals={professionals}
-            onNewAppointment={() => setScheduleOpen(true)}
+            onNewAppointment={() => {
+              setSlotPreset(null);
+              setScheduleOpen(true);
+            }}
+            onSlotClick={(professionalId, time) => {
+              setSlotPreset({ professionalId, time });
+              setScheduleOpen(true);
+            }}
           />
         </div>
       </div>
@@ -67,6 +83,8 @@ export function CalendarioTab() {
         selectedDate={selectedDay}
         professionals={professionals}
         availability={dayAvailability}
+        presetProfessionalId={slotPreset?.professionalId}
+        presetTime={slotPreset?.time}
         onClose={() => setScheduleOpen(false)}
         onSaved={() => void reload()}
       />

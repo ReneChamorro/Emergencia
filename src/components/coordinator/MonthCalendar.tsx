@@ -7,6 +7,7 @@ import {
   addMonths,
   formatMonthHeader,
   toDateKey,
+  dateToDayOfWeek,
   buildDots,
   DOT_COLOR,
   type AppointmentFull,
@@ -18,6 +19,8 @@ interface Props {
   month: Date;
   selectedDay: Date;
   byDate: Map<string, AppointmentFull[]>;
+  /** Dias de la semana (0=lunes...6=domingo) en los que algun profesional tiene disponibilidad. */
+  availabilityDows: Set<number>;
   onDaySelect: (d: Date) => void;
   onMonthChange: (d: Date) => void;
 }
@@ -26,6 +29,7 @@ export function MonthCalendar({
   month,
   selectedDay,
   byDate,
+  availabilityDows,
   onDaySelect,
   onMonthChange,
 }: Props) {
@@ -78,12 +82,13 @@ export function MonthCalendar({
           const inMonth = isCurrentMonth(day);
           const selected = isSameDay(day, selectedDay);
           const today = isToday(day);
+          const hasAvailability = availabilityDows.has(dateToDayOfWeek(day));
 
           return (
             <button
               key={i}
               type="button"
-              aria-label={`${day.toLocaleDateString("es-VE", { weekday: "long", day: "numeric", month: "long" })}${appts.length ? `, ${appts.length} citas` : ""}`}
+              aria-label={`${day.toLocaleDateString("es-VE", { weekday: "long", day: "numeric", month: "long" })}${appts.length ? `, ${appts.length} citas` : ""}${hasAvailability ? ", con disponibilidad" : ""}`}
               aria-pressed={selected}
               onClick={() => onDaySelect(day)}
               className={cn(
@@ -94,6 +99,17 @@ export function MonthCalendar({
                   : "hover:bg-secondary/60"
               )}
             >
+              {/* Punto de disponibilidad (esquina superior derecha) */}
+              {hasAvailability && (
+                <span
+                  className={cn(
+                    "absolute right-1.5 top-1.5 size-1.5 rounded-full",
+                    selected ? "bg-primary-foreground" : "bg-accent"
+                  )}
+                  aria-hidden="true"
+                />
+              )}
+
               {/* Número de día */}
               <span
                 className={cn(

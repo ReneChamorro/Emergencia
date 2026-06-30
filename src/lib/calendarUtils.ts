@@ -1,4 +1,4 @@
-import type { Appointment, Case, Profile, Urgency } from "@/types/database";
+import type { Appointment, AvailabilityBlock, Case, Profile, Urgency } from "@/types/database";
 
 // ---------- Helpers de dia de la semana ----------
 
@@ -161,3 +161,45 @@ export const DOT_COLOR: Record<Urgency, string> = {
   media: "bg-warning",
   baja: "bg-success",
 };
+
+// ---------- Franjas de 1 hora a partir de bloques de disponibilidad ----------
+
+export interface HourSlot {
+  start: string; // "HH:MM"
+  end: string;
+}
+
+function minutesToHHMM(total: number): string {
+  const h = Math.floor(total / 60);
+  const m = total % 60;
+  return `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`;
+}
+
+/** Divide un bloque (puede durar varias horas) en franjas de 1 hora. La ultima franja puede ser mas corta. */
+export function blockToHourSlots(block: AvailabilityBlock): HourSlot[] {
+  const [startH, startM] = formatBlockTime(block.start_time).split(":").map(Number);
+  const [endH, endM] = formatBlockTime(block.end_time).split(":").map(Number);
+  const startMinutes = startH * 60 + startM;
+  const endMinutes = endH * 60 + endM;
+
+  const slots: HourSlot[] = [];
+  let cursor = startMinutes;
+  while (cursor < endMinutes) {
+    const next = Math.min(cursor + 60, endMinutes);
+    slots.push({ start: minutesToHHMM(cursor), end: minutesToHHMM(next) });
+    cursor = next;
+  }
+  return slots;
+}
+
+/** Une las franjas de varios bloques (de un mismo profesional/dia), ordenadas y sin duplicados por hora de inicio. */
+export function buildHourSlots(blocks: AvailabilityBlock[]): HourSlot[] {
+  const all = blocks.flatMap(blockToHourSlots);
+  const unique = new Map<string, HourSlot>();
+  for (const s of all) unique.set(s.start, s);
+  return Array.from(unique.values()).sort((a, b) => a.start.localeCompare(b.start));
+}
+
+export function timeInRange(time: string, start: string, end: string): boolean {
+  return time >= start && time < end;
+}

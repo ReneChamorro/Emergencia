@@ -12,6 +12,7 @@ import {
 } from "@/lib/domain";
 import { StaffLayout } from "@/components/StaffLayout";
 import { CaseDetailDialog } from "@/components/coordinator/CaseDetailDialog";
+import { AddCaseDialog } from "@/components/coordinator/AddCaseDialog";
 import { CalendarioTab } from "@/components/coordinator/CalendarioTab";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Card, CardContent } from "@/components/ui/card";
@@ -26,7 +27,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { AlertTriangle, Inbox, RefreshCw, Search } from "lucide-react";
+import { AlertTriangle, Inbox, RefreshCw, Search, UserPlus } from "lucide-react";
 // AlertTriangle sigue usandose en StatCard (urgencia alta)
 
 export default function Coordinador() {
@@ -34,6 +35,7 @@ export default function Coordinador() {
   const [cases, setCases] = useState<Case[]>([]);
   const [loading, setLoading] = useState(true);
   const [selected, setSelected] = useState<Case | null>(null);
+  const [addCaseOpen, setAddCaseOpen] = useState(false);
 
   const [search, setSearch] = useState("");
   const [urgencyFilter, setUrgencyFilter] = useState<Urgency | "todas">("todas");
@@ -103,9 +105,12 @@ export default function Coordinador() {
         </TabsList>
 
         <TabsContent value="casos">
-          <div className="mb-4 flex justify-end">
+          <div className="mb-4 flex justify-end gap-2">
             <Button variant="outline" size="sm" onClick={() => void load()}>
               <RefreshCw className="size-4" /> Actualizar
+            </Button>
+            <Button size="sm" onClick={() => setAddCaseOpen(true)}>
+              <UserPlus className="size-4" /> Agregar caso
             </Button>
           </div>
           {/* Resumen */}
@@ -242,6 +247,11 @@ export default function Coordinador() {
             onOpenChange={(open) => {
               if (!open) setSelected(null);
             }}
+            onSaved={() => void load()}
+          />
+          <AddCaseDialog
+            open={addCaseOpen}
+            onClose={() => setAddCaseOpen(false)}
             onSaved={() => void load()}
           />
         </TabsContent>

@@ -1,5 +1,5 @@
 import { z } from "zod";
-import type { PrefModality, StableConn } from "@/types/database";
+import type { PrefModality, StableConn, Urgency } from "@/types/database";
 
 export const LIMITS = {
   name: 120,
@@ -110,3 +110,39 @@ export const intakeSchema = z.object({
 });
 
 export type IntakeValidated = z.infer<typeof intakeSchema>;
+
+/**
+ * Caso creado manualmente por el coordinador (paciente que llamo por
+ * telefono, sin pasar por el formulario publico). Campos minimos.
+ */
+export const manualCaseSchema = z.object({
+  patient_name: z
+    .string()
+    .transform((s) => sanitizeText(s))
+    .pipe(z.string().min(2, "Indica el nombre.").max(LIMITS.name, "Nombre demasiado largo.")),
+
+  whatsapp: z
+    .string()
+    .transform((s) => sanitizePhone(s))
+    .pipe(z.string().regex(phoneRegex, "Numero de WhatsApp invalido (7 a 15 digitos).")),
+
+  city: z
+    .string()
+    .transform((s) => sanitizeText(s))
+    .pipe(z.string().max(LIMITS.city, "Ciudad demasiado larga."))
+    .transform((s) => s || null),
+
+  urgency: z.enum(["alta", "media", "baja"] as [Urgency, ...Urgency[]]),
+
+  observations: z
+    .string()
+    .transform((s) => sanitizeText(s, { allowNewlines: true }))
+    .pipe(z.string().max(LIMITS.observations, "Observaciones demasiado largas."))
+    .transform((s) => s || null),
+
+  consent: z.literal(true, {
+    errorMap: () => ({ message: "Confirma la autorizacion del paciente para continuar." }),
+  }),
+});
+
+export type ManualCaseValidated = z.infer<typeof manualCaseSchema>;

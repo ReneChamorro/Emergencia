@@ -31,6 +31,9 @@ interface Props {
   professionals: Profile[];
   /** Bloques de disponibilidad de todos los profesionales para el dia seleccionado. */
   availability: AvailabilityBlock[];
+  /** Pre-seleccionar profesional + hora (al hacer click en una franja libre del panel del dia). */
+  presetProfessionalId?: string;
+  presetTime?: string;
   onClose: () => void;
   onSaved: () => void;
 }
@@ -40,6 +43,8 @@ export function QuickScheduleDialog({
   selectedDate,
   professionals,
   availability,
+  presetProfessionalId,
+  presetTime,
   onClose,
   onSaved,
 }: Props) {
@@ -64,9 +69,12 @@ export function QuickScheduleDialog({
       .then(({ data }) => setCases((data as Case[]) ?? []));
   }, [open]);
 
-  // Reset al cambiar dia o cerrar
+  // Inicializar/reset al abrir o cerrar
   useEffect(() => {
-    if (!open) {
+    if (open) {
+      setProfessionalId(presetProfessionalId ?? "");
+      setTime(presetTime ?? "09:00");
+    } else {
       setCaseId("");
       setProfessionalId("");
       setTime("09:00");
@@ -74,7 +82,8 @@ export function QuickScheduleDialog({
       setContactNo("1");
       setError(null);
     }
-  }, [open]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, presetProfessionalId, presetTime]);
 
   async function handleSave() {
     setError(null);
