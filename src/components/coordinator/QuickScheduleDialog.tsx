@@ -249,7 +249,7 @@ export function QuickScheduleDialog({
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                {(["videollamada", "llamada", "presencial"] as ApptModality[]).map((m) => (
+                {(["videollamada", "llamada"] as ApptModality[]).map((m) => (
                   <SelectItem key={m} value={m}>
                     {MODALITY_LABEL[m]}
                   </SelectItem>

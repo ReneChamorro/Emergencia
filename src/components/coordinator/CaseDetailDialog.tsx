@@ -222,7 +222,7 @@ export function CaseDetailDialog({ caseItem, professionals, onOpenChange, onSave
             <Select value={apptModality} onValueChange={(v) => setApptModality(v as ApptModality)}>
               <SelectTrigger className="w-[150px]"><SelectValue /></SelectTrigger>
               <SelectContent>
-                {(["videollamada", "llamada", "presencial"] as ApptModality[]).map((m) => (
+                {(["videollamada", "llamada"] as ApptModality[]).map((m) => (
                   <SelectItem key={m} value={m}>{MODALITY_LABEL[m]}</SelectItem>
                 ))}
               </SelectContent>
