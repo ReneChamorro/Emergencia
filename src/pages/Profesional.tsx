@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/context/AuthContext";
-import type { Appointment, ApptStatus, Case, CaseStatus } from "@/types/database";
+import type { Appointment, ApptStatus, AvailabilityBlock, Case, CaseStatus } from "@/types/database";
 import {
   APPT_STATUS_LABEL,
   MODALITY_LABEL,
@@ -13,8 +13,10 @@ import {
   URGENCY_ORDER,
   formatDateTime,
 } from "@/lib/domain";
+import { useMyAvailability } from "@/hooks/useAvailabilityBlocks";
 import { StaffLayout } from "@/components/StaffLayout";
 import { AvailabilityEditor } from "@/components/professional/AvailabilityEditor";
+import { ScheduleFollowUpDialog } from "@/components/professional/ScheduleFollowUpDialog";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -29,13 +31,14 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { CalendarClock, Phone } from "lucide-react";
+import { CalendarClock, CalendarPlus, Phone } from "lucide-react";
 
 export default function Profesional() {
   const { profile } = useAuth();
   const [cases, setCases] = useState<Case[]>([]);
   const [appointments, setAppointments] = useState<Appointment[]>([]);
   const [loading, setLoading] = useState(true);
+  const { blocks: myBlocks } = useMyAvailability();
 
   async function load() {
     setLoading(true);
@@ -85,6 +88,7 @@ export default function Profesional() {
                   key={c.id}
                   caseItem={c}
                   appointments={appointments.filter((a) => a.case_id === c.id)}
+                  myBlocks={myBlocks}
                   onChanged={() => void load()}
                 />
               ))}
@@ -103,10 +107,12 @@ export default function Profesional() {
 function ProfessionalCaseCard({
   caseItem,
   appointments,
+  myBlocks,
   onChanged,
 }: {
   caseItem: Case;
   appointments: Appointment[];
+  myBlocks: AvailabilityBlock[];
   onChanged: () => void;
 }) {
   const { profile } = useAuth();
@@ -114,6 +120,14 @@ function ProfessionalCaseCard({
   const [notes, setNotes] = useState(caseItem.notes ?? "");
   const [saving, setSaving] = useState(false);
   const [feedback, setFeedback] = useState<string | null>(null);
+  const [followUpOpen, setFollowUpOpen] = useState(false);
+
+  const hasSeenFirst = appointments.some((a) => a.status === "realizada");
+  const maxContact = appointments.length
+    ? Math.max(...appointments.map((a) => a.contact_number))
+    : 0;
+  const canScheduleFollowUp =
+    hasSeenFirst && maxContact < 3 && caseItem.status !== "cerrado" && caseItem.status !== "derivado";
 
   async function save() {
     setSaving(true);
@@ -197,9 +211,16 @@ function ProfessionalCaseCard({
         {/* Citas */}
         {appointments.length > 0 && (
           <div className="space-y-2">
-            <p className="flex items-center gap-1.5 text-sm font-medium text-foreground">
-              <CalendarClock className="size-4 text-accent" /> Citas
-            </p>
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <p className="flex items-center gap-1.5 text-sm font-medium text-foreground">
+                <CalendarClock className="size-4 text-accent" /> Citas
+              </p>
+              {canScheduleFollowUp && (
+                <Button variant="outline" size="sm" onClick={() => setFollowUpOpen(true)}>
+                  <CalendarPlus className="size-3.5" /> Agendar seguimiento
+                </Button>
+              )}
+            </div>
             {appointments.map((a) => (
               <div key={a.id} className="flex flex-wrap items-center justify-between gap-2 rounded-md border border-border px-3 py-2 text-sm">
                 <span className="tabular-nums">
@@ -215,7 +236,23 @@ function ProfessionalCaseCard({
                 </Select>
               </div>
             ))}
+            <p className="text-xs text-muted-foreground">
+              Marca una cita como "Realizada" cuando ya atendiste al paciente.
+              {!hasSeenFirst && " Tras la primera consulta podrás agendar el seguimiento."}
+            </p>
           </div>
+        )}
+
+        {profile && (
+          <ScheduleFollowUpDialog
+            open={followUpOpen}
+            caseItem={caseItem}
+            professionalId={profile.id}
+            myBlocks={myBlocks}
+            existingAppointments={appointments}
+            onClose={() => setFollowUpOpen(false)}
+            onSaved={onChanged}
+          />
         )}
 
         {/* Estado + notas */}

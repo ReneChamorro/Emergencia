@@ -35,6 +35,24 @@ export function endOfMonth(d: Date): Date {
   return new Date(d.getFullYear(), d.getMonth() + 1, 0, 23, 59, 59, 999);
 }
 
+export function startOfDay(d: Date): Date {
+  return new Date(d.getFullYear(), d.getMonth(), d.getDate(), 0, 0, 0, 0);
+}
+
+export function endOfDay(d: Date): Date {
+  return new Date(d.getFullYear(), d.getMonth(), d.getDate(), 23, 59, 59, 999);
+}
+
+/** Parsea un input type="date" ("YYYY-MM-DD") como fecha local (evita el corrimiento de UTC). */
+export function parseDateInput(value: string): Date {
+  return new Date(`${value}T00:00:00`);
+}
+
+/** Formatea una Date a "YYYY-MM-DD" para un input type="date". */
+export function toDateInputValue(d: Date): string {
+  return toDateKey(d);
+}
+
 export function isSameDay(a: Date, b: Date): boolean {
   return (
     a.getFullYear() === b.getFullYear() &&

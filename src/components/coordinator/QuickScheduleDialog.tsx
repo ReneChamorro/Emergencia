@@ -105,12 +105,23 @@ export function QuickScheduleDialog({
       contact_number: Number(contactNo),
       created_by: profile?.id ?? null,
     });
-    setSaving(false);
 
     if (err) {
+      setSaving(false);
       setError("No se pudo agendar. Intenta de nuevo.");
       return;
     }
+
+    // Asignar el caso al profesional para que le aparezca en su panel
+    // ("Mis casos" filtra por assigned_professional_id via RLS).
+    const selectedCase = cases.find((c) => c.id === caseId);
+    const nextStatus = selectedCase?.status === "nuevo" ? "asignado" : selectedCase?.status;
+    await supabase
+      .from("cases")
+      .update({ assigned_professional_id: professionalId, status: nextStatus })
+      .eq("id", caseId);
+
+    setSaving(false);
     onSaved();
     onClose();
   }
