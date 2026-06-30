@@ -116,12 +116,19 @@ export function QuickScheduleDialog({
     // ("Mis casos" filtra por assigned_professional_id via RLS).
     const selectedCase = cases.find((c) => c.id === caseId);
     const nextStatus = selectedCase?.status === "nuevo" ? "asignado" : selectedCase?.status;
-    await supabase
+    const { error: caseErr } = await supabase
       .from("cases")
       .update({ assigned_professional_id: professionalId, status: nextStatus })
       .eq("id", caseId);
 
     setSaving(false);
+
+    if (caseErr) {
+      // La cita SI se creo, pero el caso no quedo asignado: avisar con el motivo real.
+      setError(`La cita se creo, pero no se pudo asignar el caso: ${caseErr.message}`);
+      return;
+    }
+
     onSaved();
     onClose();
   }
