@@ -1,7 +1,8 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useProfessionals } from "@/hooks/useProfessionals";
 import { useCalendarAppointments } from "@/hooks/useCalendarAppointments";
-import { toDateKey } from "@/lib/calendarUtils";
+import { useAllAvailabilityBlocks } from "@/hooks/useAvailabilityBlocks";
+import { toDateKey, dateToDayOfWeek } from "@/lib/calendarUtils";
 import { MonthCalendar } from "./MonthCalendar";
 import { DayDetailPanel } from "./DayDetailPanel";
 import { QuickScheduleDialog } from "./QuickScheduleDialog";
@@ -14,9 +15,16 @@ export function CalendarioTab() {
 
   const { professionals } = useProfessionals();
   const { byDate, loading, reload } = useCalendarAppointments(month);
+  const { blocks: availabilityBlocks } = useAllAvailabilityBlocks();
 
   const dayKey = toDateKey(selectedDay);
   const dayAppointments = byDate.get(dayKey) ?? [];
+
+  const dayOfWeek = dateToDayOfWeek(selectedDay);
+  const dayAvailability = useMemo(
+    () => availabilityBlocks.filter((b) => b.day_of_week === dayOfWeek),
+    [availabilityBlocks, dayOfWeek]
+  );
 
   return (
     <>
@@ -47,6 +55,8 @@ export function CalendarioTab() {
           <DayDetailPanel
             day={selectedDay}
             appointments={dayAppointments}
+            availability={dayAvailability}
+            professionals={professionals}
             onNewAppointment={() => setScheduleOpen(true)}
           />
         </div>
@@ -56,6 +66,7 @@ export function CalendarioTab() {
         open={scheduleOpen}
         selectedDate={selectedDay}
         professionals={professionals}
+        availability={dayAvailability}
         onClose={() => setScheduleOpen(false)}
         onSaved={() => void reload()}
       />

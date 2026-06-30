@@ -1,5 +1,17 @@
 import type { Appointment, Case, Profile, Urgency } from "@/types/database";
 
+// ---------- Helpers de dia de la semana ----------
+
+/** Convierte Date al sistema 0=lunes…6=domingo (igual que availability_blocks). */
+export function dateToDayOfWeek(d: Date): number {
+  return (d.getDay() + 6) % 7;
+}
+
+/** Formatea "HH:MM:SS" (postgres time) a "HH:MM". */
+export function formatBlockTime(t: string): string {
+  return t.slice(0, 5);
+}
+
 // ---------- Tipos ----------
 
 export interface AppointmentFull extends Appointment {

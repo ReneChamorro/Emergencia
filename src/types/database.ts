@@ -55,6 +55,16 @@ export interface Appointment {
   created_at: string;
 }
 
+export interface AvailabilityBlock {
+  id: string;
+  professional_id: string;
+  day_of_week: number; // 0=lunes … 6=domingo
+  start_time: string;  // "HH:MM:SS" (Postgres time)
+  end_time: string;
+  active: boolean;
+  created_at: string;
+}
+
 // Payload del formulario publico de agendamiento.
 export type CaseIntakeInput = Pick<
   Case,

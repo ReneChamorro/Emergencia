@@ -14,6 +14,8 @@ import {
   formatDateTime,
 } from "@/lib/domain";
 import { StaffLayout } from "@/components/StaffLayout";
+import { AvailabilityEditor } from "@/components/professional/AvailabilityEditor";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -60,27 +62,40 @@ export default function Profesional() {
       title={`Hola${profile?.full_name ? ", " + profile.full_name.split(" ")[0] : ""}`}
       subtitle="Casos asignados a ti. Atencion focalizada: 1 a 3 contactos."
     >
-      {cases.length === 0 ? (
-        <Card>
-          <CardContent className="py-12 text-center text-muted-foreground">
-            Aun no tienes casos asignados. El equipo coordinador te asignara pacientes pronto.
-          </CardContent>
-        </Card>
-      ) : (
-        <div className="space-y-4">
-          {activeCases.length === 0 && (
-            <p className="text-sm text-muted-foreground">No tienes casos activos. Mostrando historial.</p>
+      <Tabs defaultValue="casos">
+        <TabsList className="mb-6">
+          <TabsTrigger value="casos">Mis casos</TabsTrigger>
+          <TabsTrigger value="disponibilidad">Mi disponibilidad</TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="casos">
+          {cases.length === 0 ? (
+            <Card>
+              <CardContent className="py-12 text-center text-muted-foreground">
+                Aun no tienes casos asignados. El equipo coordinador te asignara pacientes pronto.
+              </CardContent>
+            </Card>
+          ) : (
+            <div className="space-y-4">
+              {activeCases.length === 0 && (
+                <p className="text-sm text-muted-foreground">No tienes casos activos. Mostrando historial.</p>
+              )}
+              {cases.map((c) => (
+                <ProfessionalCaseCard
+                  key={c.id}
+                  caseItem={c}
+                  appointments={appointments.filter((a) => a.case_id === c.id)}
+                  onChanged={() => void load()}
+                />
+              ))}
+            </div>
           )}
-          {cases.map((c) => (
-            <ProfessionalCaseCard
-              key={c.id}
-              caseItem={c}
-              appointments={appointments.filter((a) => a.case_id === c.id)}
-              onChanged={() => void load()}
-            />
-          ))}
-        </div>
-      )}
+        </TabsContent>
+
+        <TabsContent value="disponibilidad">
+          <AvailabilityEditor />
+        </TabsContent>
+      </Tabs>
     </StaffLayout>
   );
 }

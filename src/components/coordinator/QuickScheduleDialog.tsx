@@ -1,8 +1,9 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/context/AuthContext";
-import type { ApptModality, Case, Profile } from "@/types/database";
+import type { ApptModality, AvailabilityBlock, Case, Profile } from "@/types/database";
 import { MODALITY_LABEL } from "@/lib/domain";
+import { formatBlockTime } from "@/lib/calendarUtils";
 import {
   Dialog,
   DialogContent,
@@ -22,11 +23,14 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Spinner } from "@/components/ui/spinner";
+import { AlertTriangle } from "lucide-react";
 
 interface Props {
   open: boolean;
   selectedDate: Date;
   professionals: Profile[];
+  /** Bloques de disponibilidad de todos los profesionales para el dia seleccionado. */
+  availability: AvailabilityBlock[];
   onClose: () => void;
   onSaved: () => void;
 }
@@ -35,6 +39,7 @@ export function QuickScheduleDialog({
   open,
   selectedDate,
   professionals,
+  availability,
   onClose,
   onSaved,
 }: Props) {
@@ -106,6 +111,21 @@ export function QuickScheduleDialog({
     day: "numeric",
     month: "long",
   });
+
+  const professionalBlocks = useMemo(
+    () => availability.filter((b) => b.professional_id === professionalId),
+    [availability, professionalId]
+  );
+
+  // Avisa (no bloquea) si la hora elegida cae fuera de los bloques del profesional.
+  const outsideAvailability = useMemo(() => {
+    if (!professionalId || !time) return false;
+    if (professionalBlocks.length === 0) return false;
+    const t = time; // "HH:MM"
+    return !professionalBlocks.some(
+      (b) => t >= formatBlockTime(b.start_time) && t < formatBlockTime(b.end_time)
+    );
+  }, [professionalId, time, professionalBlocks]);
 
   return (
     <Dialog open={open} onOpenChange={(o) => { if (!o) onClose(); }}>
@@ -185,6 +205,32 @@ export function QuickScheduleDialog({
               </Select>
             </div>
           </div>
+
+          {/* Aviso de disponibilidad */}
+          {professionalId && professionalBlocks.length > 0 && (
+            <div className="flex flex-wrap gap-1.5">
+              {professionalBlocks.map((b) => (
+                <span
+                  key={b.id}
+                  className="inline-flex items-center rounded-full border border-success/30 bg-success/10 px-2 py-0.5 text-xs font-medium text-success"
+                >
+                  Disponible {formatBlockTime(b.start_time)}–{formatBlockTime(b.end_time)}
+                </span>
+              ))}
+            </div>
+          )}
+          {outsideAvailability && (
+            <p className="flex items-start gap-1.5 rounded-md border border-warning/40 bg-warning/10 p-2 text-xs text-warning-foreground">
+              <AlertTriangle className="mt-0.5 size-3.5 shrink-0" />
+              Esta hora cae fuera del horario disponible del profesional. Puedes
+              agendar igual si es necesario.
+            </p>
+          )}
+          {professionalId && professionalBlocks.length === 0 && (
+            <p className="text-xs text-muted-foreground">
+              Este profesional no definió disponibilidad para este día.
+            </p>
+          )}
 
           {/* Modalidad */}
           <div className="space-y-1.5">
