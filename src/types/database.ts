@@ -1,4 +1,4 @@
-export type UserRole      = "coordinator" | "professional";
+export type UserRole      = "coordinator" | "professional" | "admin";
 export type Urgency       = "alta" | "media" | "baja";
 export type CaseStatus    = "nuevo" | "asignado" | "en_contacto" | "cerrado" | "derivado";
 export type ApptModality  = "llamada" | "videollamada" | "presencial";
@@ -58,7 +58,10 @@ export interface Appointment {
 export interface AvailabilityBlock {
   id: string;
   professional_id: string;
-  day_of_week: number; // 0=lunes … 6=domingo
+  /** 0=lunes…6=domingo. null para bloques de fecha específica. */
+  day_of_week: number | null;
+  /** "YYYY-MM-DD". null para bloques semanales recurrentes. */
+  specific_date: string | null;
   start_time: string;  // "HH:MM:SS" (Postgres time)
   end_time: string;
   active: boolean;

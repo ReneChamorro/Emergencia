@@ -4,8 +4,8 @@ import type { Appointment, ApptModality, AvailabilityBlock, Case } from "@/types
 import { MODALITY_LABEL } from "@/lib/domain";
 import {
   buildHourSlots,
-  dateToDayOfWeek,
   formatTime,
+  getBlocksForDate,
   parseDateInput,
   startOfDay,
   endOfDay,
@@ -101,8 +101,7 @@ export function ScheduleFollowUpDialog({
 
   const slots = useMemo(() => {
     if (!date) return [];
-    const dow = dateToDayOfWeek(parseDateInput(date));
-    const dayBlocks = myBlocks.filter((b) => b.day_of_week === dow && b.active);
+    const dayBlocks = getBlocksForDate(myBlocks, parseDateInput(date));
     return buildHourSlots(dayBlocks).filter(
       (s) => !occupied.some((t) => timeInRange(t, s.start, s.end))
     );

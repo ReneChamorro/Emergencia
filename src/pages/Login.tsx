@@ -30,7 +30,7 @@ export default function Login() {
   useEffect(() => {
     if (session && profile) {
       navigate(
-        profile.role === "coordinator" ? "/coordinador" : "/profesional",
+        profile.role === "professional" ? "/profesional" : "/coordinador",
         { replace: true }
       );
     }

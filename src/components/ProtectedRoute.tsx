@@ -24,7 +24,7 @@ export function ProtectedRoute({ children, allow }: Props) {
 
   if (allow && !allow.includes(profile.role)) {
     // Rol incorrecto: enviar a su panel correspondiente.
-    const home = profile.role === "coordinator" ? "/coordinador" : "/profesional";
+    const home = profile.role === "professional" ? "/profesional" : "/coordinador";
     return <Navigate to={home} replace />;
   }
 

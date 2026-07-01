@@ -22,15 +22,37 @@ export function CalendarioTab() {
   const dayAppointments = byDate.get(dayKey) ?? [];
 
   const dayOfWeek = dateToDayOfWeek(selectedDay);
+
+  // Bloques del dia seleccionado: recurrentes (por dia semana) + puntuales (por fecha exacta)
   const dayAvailability = useMemo(
-    () => availabilityBlocks.filter((b) => b.day_of_week === dayOfWeek),
-    [availabilityBlocks, dayOfWeek]
+    () =>
+      availabilityBlocks.filter(
+        (b) =>
+          (b.specific_date === null && b.day_of_week === dayOfWeek) ||
+          b.specific_date === dayKey
+      ),
+    [availabilityBlocks, dayOfWeek, dayKey]
   );
 
-  // Dias de la semana (0=lunes...6=domingo) en los que ALGUN profesional tiene
-  // disponibilidad, para marcar el punto azul en la vista de mes.
+  // Dias de la semana con disponibilidad recurrente → punto azul en el mes
   const availabilityDows = useMemo(
-    () => new Set(availabilityBlocks.map((b) => b.day_of_week)),
+    () =>
+      new Set(
+        availabilityBlocks
+          .filter((b) => b.specific_date === null && b.day_of_week !== null)
+          .map((b) => b.day_of_week as number)
+      ),
+    [availabilityBlocks]
+  );
+
+  // Fechas concretas con disponibilidad puntual → punto azul en la celda exacta
+  const availabilitySpecificDates = useMemo(
+    () =>
+      new Set(
+        availabilityBlocks
+          .filter((b) => b.specific_date !== null)
+          .map((b) => b.specific_date as string)
+      ),
     [availabilityBlocks]
   );
 
@@ -50,6 +72,7 @@ export function CalendarioTab() {
             selectedDay={selectedDay}
             byDate={byDate}
             availabilityDows={availabilityDows}
+            availabilitySpecificDates={availabilitySpecificDates}
             onDaySelect={setSelectedDay}
             onMonthChange={(m) => {
               setMonth(m);

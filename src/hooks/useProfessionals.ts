@@ -16,7 +16,7 @@ export function useProfessionals() {
       .then(({ data }) => {
         if (!active) return;
         const list = (data as Profile[]) ?? [];
-        setProfessionals(list.filter((p) => p.role === "professional"));
+        setProfessionals(list.filter((p) => p.role === "professional" || p.role === "admin"));
         setLoading(false);
       });
     return () => {

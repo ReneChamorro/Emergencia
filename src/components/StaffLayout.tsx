@@ -22,7 +22,11 @@ export function StaffLayout({ title, subtitle, actions, children }: Props) {
             <div className="leading-tight">
               <p className="text-sm font-semibold">Apoyo Psicologico de Emergencia</p>
               <p className="text-xs text-primary-foreground/70">
-                {profile?.role === "coordinator" ? "Coordinacion" : "Profesional"}
+                {profile?.role === "coordinator"
+                  ? "Coordinacion"
+                  : profile?.role === "admin"
+                  ? "Administracion"
+                  : "Profesional"}
                 {profile?.full_name ? ` · ${profile.full_name}` : ""}
               </p>
             </div>

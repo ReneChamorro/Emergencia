@@ -19,8 +19,10 @@ interface Props {
   month: Date;
   selectedDay: Date;
   byDate: Map<string, AppointmentFull[]>;
-  /** Dias de la semana (0=lunes...6=domingo) en los que algun profesional tiene disponibilidad. */
+  /** Dias de la semana (0=lunes…6=domingo) con disponibilidad semanal recurrente. */
   availabilityDows: Set<number>;
+  /** Fechas concretas "YYYY-MM-DD" con disponibilidad puntual (one-off). */
+  availabilitySpecificDates: Set<string>;
   onDaySelect: (d: Date) => void;
   onMonthChange: (d: Date) => void;
 }
@@ -30,6 +32,7 @@ export function MonthCalendar({
   selectedDay,
   byDate,
   availabilityDows,
+  availabilitySpecificDates,
   onDaySelect,
   onMonthChange,
 }: Props) {
@@ -82,7 +85,9 @@ export function MonthCalendar({
           const inMonth = isCurrentMonth(day);
           const selected = isSameDay(day, selectedDay);
           const today = isToday(day);
-          const hasAvailability = availabilityDows.has(dateToDayOfWeek(day));
+          const hasAvailability =
+            availabilityDows.has(dateToDayOfWeek(day)) ||
+            availabilitySpecificDates.has(key);
 
           return (
             <button

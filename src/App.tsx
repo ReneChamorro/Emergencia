@@ -15,7 +15,7 @@ function StaffHome() {
   if (!session || !profile) return <Navigate to="/login" replace />;
   return (
     <Navigate
-      to={profile.role === "coordinator" ? "/coordinador" : "/profesional"}
+      to={profile.role === "professional" ? "/profesional" : "/coordinador"}
       replace
     />
   );
@@ -30,7 +30,7 @@ export default function App() {
       <Route
         path="/coordinador"
         element={
-          <ProtectedRoute allow={["coordinator"]}>
+          <ProtectedRoute allow={["coordinator", "admin"]}>
             <Coordinador />
           </ProtectedRoute>
         }
@@ -38,7 +38,7 @@ export default function App() {
       <Route
         path="/profesional"
         element={
-          <ProtectedRoute allow={["professional", "coordinator"]}>
+          <ProtectedRoute allow={["professional", "coordinator", "admin"]}>
             <Profesional />
           </ProtectedRoute>
         }

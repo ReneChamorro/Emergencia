@@ -221,3 +221,18 @@ export function buildHourSlots(blocks: AvailabilityBlock[]): HourSlot[] {
 export function timeInRange(time: string, start: string, end: string): boolean {
   return time >= start && time < end;
 }
+
+/**
+ * Devuelve los bloques activos para una fecha concreta, uniendo
+ * bloques semanales recurrentes (day_of_week) y bloques puntuales (specific_date).
+ */
+export function getBlocksForDate(blocks: AvailabilityBlock[], date: Date): AvailabilityBlock[] {
+  const dow = dateToDayOfWeek(date);
+  const dateStr = toDateKey(date);
+  return blocks.filter(
+    (b) =>
+      b.active &&
+      ((b.specific_date === null && b.day_of_week === dow) ||
+        b.specific_date === dateStr)
+  );
+}
