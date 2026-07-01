@@ -31,7 +31,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { CalendarClock, CalendarPlus, Phone } from "lucide-react";
+import { AlertTriangle, CalendarClock, CalendarPlus, Phone, UserMinus } from "lucide-react";
 
 export default function Profesional() {
   const { profile } = useAuth();
@@ -121,6 +121,8 @@ function ProfessionalCaseCard({
   const [saving, setSaving] = useState(false);
   const [feedback, setFeedback] = useState<string | null>(null);
   const [followUpOpen, setFollowUpOpen] = useState(false);
+  const [confirmUnassign, setConfirmUnassign] = useState(false);
+  const [unassigning, setUnassigning] = useState(false);
 
   const hasSeenFirst = appointments.some((a) => a.status === "realizada");
   const maxContact = appointments.length
@@ -147,6 +149,17 @@ function ProfessionalCaseCard({
     setSaving(false);
     setFeedback(error ? "No se pudo guardar." : "Guardado.");
     if (!error) onChanged();
+  }
+
+  async function handleUnassign() {
+    setUnassigning(true);
+    await supabase
+      .from("cases")
+      .update({ assigned_professional_id: null, status: "nuevo" })
+      .eq("id", caseItem.id);
+    setUnassigning(false);
+    setConfirmUnassign(false);
+    onChanged();
   }
 
   async function setApptStatus(id: string, newStatus: ApptStatus) {
@@ -253,6 +266,43 @@ function ProfessionalCaseCard({
             onClose={() => setFollowUpOpen(false)}
             onSaved={onChanged}
           />
+        )}
+
+        {/* Desasignarme del caso */}
+        {!confirmUnassign ? (
+          <div className="flex justify-start">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setConfirmUnassign(true)}
+              className="gap-1.5 border-warning/40 text-warning hover:bg-warning/10 hover:text-warning"
+            >
+              <UserMinus className="size-3.5" />
+              Desasignarme del caso
+            </Button>
+          </div>
+        ) : (
+          <div className="rounded-lg border border-warning/30 bg-warning/5 p-4 space-y-3">
+            <div className="flex items-start gap-2 text-sm">
+              <AlertTriangle className="mt-0.5 size-4 shrink-0 text-warning" />
+              <div>
+                <p className="font-semibold text-foreground">¿Desasignarte de este caso?</p>
+                <p className="mt-0.5 text-muted-foreground">
+                  El caso <strong>no se borrará</strong>. Se quitará tu asignación y volverá
+                  a la lista de casos nuevos sin profesional asignado.
+                </p>
+              </div>
+            </div>
+            <div className="flex justify-end gap-2">
+              <Button variant="outline" size="sm" onClick={() => setConfirmUnassign(false)} disabled={unassigning}>
+                Cancelar
+              </Button>
+              <Button size="sm" onClick={handleUnassign} disabled={unassigning}>
+                {unassigning && <Spinner className="text-primary-foreground" />}
+                Confirmar
+              </Button>
+            </div>
+          </div>
         )}
 
         {/* Estado + notas */}

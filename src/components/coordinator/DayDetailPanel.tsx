@@ -1,6 +1,9 @@
-import { CalendarPlus, Phone, Plus } from "lucide-react";
+import { useState } from "react";
+import { supabase } from "@/lib/supabase";
+import { AlertTriangle, CalendarPlus, Phone, Plus, UserMinus } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Spinner } from "@/components/ui/spinner";
 import {
   APPT_STATUS_LABEL,
   MODALITY_LABEL,
@@ -26,6 +29,8 @@ interface Props {
   professionals: Profile[];
   onNewAppointment: () => void;
   onSlotClick: (professionalId: string, time: string) => void;
+  /** Llamado tras desasignar un caso para forzar recarga. */
+  onCaseChanged?: () => void;
 }
 
 interface DaySection {
@@ -42,9 +47,25 @@ export function DayDetailPanel({
   professionals,
   onNewAppointment,
   onSlotClick,
+  onCaseChanged,
 }: Props) {
   const key = toDateKey(day);
   const apptGroups = groupByProfessional(appointments);
+
+  // ID de la cita cuya fila está en modo "confirmar desasignación"
+  const [confirmApptId, setConfirmApptId] = useState<string | null>(null);
+  const [unassigning, setUnassigning] = useState(false);
+
+  async function handleUnassign(caseId: string) {
+    setUnassigning(true);
+    await supabase
+      .from("cases")
+      .update({ assigned_professional_id: null, status: "nuevo" })
+      .eq("id", caseId);
+    setUnassigning(false);
+    setConfirmApptId(null);
+    onCaseChanged?.();
+  }
 
   // Union de profesionales con citas y/o disponibilidad ese dia
   const sectionMap = new Map<string, DaySection>();
@@ -141,7 +162,15 @@ export function DayDetailPanel({
                   <ul className="space-y-1.5" role="list">
                     {slotRows.map(({ slot, appointment }) =>
                       appointment ? (
-                        <AppointmentRow key={appointment.id} a={appointment} />
+                        <AppointmentRow
+                          key={appointment.id}
+                          a={appointment}
+                          confirming={confirmApptId === appointment.id}
+                          unassigning={unassigning && confirmApptId === appointment.id}
+                          onRequestConfirm={() => setConfirmApptId(appointment.id)}
+                          onCancelConfirm={() => setConfirmApptId(null)}
+                          onConfirmUnassign={() => void handleUnassign(appointment.case_id)}
+                        />
                       ) : (
                         <EmptySlotRow
                           key={slot.start}
@@ -164,7 +193,15 @@ export function DayDetailPanel({
                     )}
                     <ul className="space-y-1.5" role="list">
                       {leftover.map((a) => (
-                        <AppointmentRow key={a.id} a={a} />
+                        <AppointmentRow
+                          key={a.id}
+                          a={a}
+                          confirming={confirmApptId === a.id}
+                          unassigning={unassigning && confirmApptId === a.id}
+                          onRequestConfirm={() => setConfirmApptId(a.id)}
+                          onCancelConfirm={() => setConfirmApptId(null)}
+                          onConfirmUnassign={() => void handleUnassign(a.case_id)}
+                        />
                       ))}
                     </ul>
                   </div>
@@ -201,7 +238,51 @@ function EmptySlotRow({ slot, onClick }: { slot: HourSlot; onClick: () => void }
   );
 }
 
-function AppointmentRow({ a }: { a: AppointmentFull }) {
+interface AppointmentRowProps {
+  a: AppointmentFull;
+  confirming: boolean;
+  unassigning: boolean;
+  onRequestConfirm: () => void;
+  onCancelConfirm: () => void;
+  onConfirmUnassign: () => void;
+}
+
+function AppointmentRow({
+  a,
+  confirming,
+  unassigning,
+  onRequestConfirm,
+  onCancelConfirm,
+  onConfirmUnassign,
+}: AppointmentRowProps) {
+  if (confirming) {
+    return (
+      <li className="rounded-lg border border-warning/30 bg-warning/5 px-3 py-2.5 text-sm">
+        <div className="flex items-start gap-2">
+          <AlertTriangle className="mt-0.5 size-4 shrink-0 text-warning" />
+          <div className="flex-1 min-w-0">
+            <p className="font-medium text-foreground">
+              ¿Desasignar a {a.case?.patient_name ?? "este paciente"}?
+            </p>
+            <p className="mt-0.5 text-xs text-muted-foreground">
+              El caso <strong>no se borrará</strong>. Se quitará la asignación al profesional
+              y volverá a estado "Nuevo".
+            </p>
+          </div>
+        </div>
+        <div className="mt-2.5 flex justify-end gap-2">
+          <Button variant="outline" size="sm" onClick={onCancelConfirm} disabled={unassigning}>
+            Cancelar
+          </Button>
+          <Button size="sm" onClick={onConfirmUnassign} disabled={unassigning}>
+            {unassigning && <Spinner className="text-primary-foreground" />}
+            Confirmar
+          </Button>
+        </div>
+      </li>
+    );
+  }
+
   return (
     <li className="flex items-start gap-3 rounded-lg border border-border bg-card px-3 py-2.5 text-sm">
       {/* Hora */}
@@ -241,19 +322,29 @@ function AppointmentRow({ a }: { a: AppointmentFull }) {
         </div>
       </div>
 
-      {/* Estado */}
-      <span
-        className={
-          "shrink-0 rounded-full border px-2 py-0.5 text-xs font-medium " +
-          (a.status === "programada"
-            ? "border-accent/30 bg-accent/10 text-accent"
-            : a.status === "realizada"
-            ? "border-success/30 bg-success/10 text-success"
-            : "border-border bg-muted text-muted-foreground")
-        }
-      >
-        {APPT_STATUS_LABEL[a.status]}
-      </span>
+      {/* Estado + desasignar */}
+      <div className="flex shrink-0 items-center gap-2">
+        <span
+          className={
+            "rounded-full border px-2 py-0.5 text-xs font-medium " +
+            (a.status === "programada"
+              ? "border-accent/30 bg-accent/10 text-accent"
+              : a.status === "realizada"
+              ? "border-success/30 bg-success/10 text-success"
+              : "border-border bg-muted text-muted-foreground")
+          }
+        >
+          {APPT_STATUS_LABEL[a.status]}
+        </span>
+        <button
+          type="button"
+          title="Desasignar caso"
+          onClick={onRequestConfirm}
+          className="rounded p-1 text-muted-foreground hover:text-warning focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+        >
+          <UserMinus className="size-3.5" />
+        </button>
+      </div>
     </li>
   );
 }

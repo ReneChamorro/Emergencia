@@ -38,7 +38,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Spinner } from "@/components/ui/spinner";
-import { CalendarPlus } from "lucide-react";
+import { AlertTriangle, CalendarPlus, Info as InfoIcon, Trash2, UserMinus } from "lucide-react";
 
 interface Props {
   caseItem: Case | null;
@@ -47,6 +47,8 @@ interface Props {
   onSaved: () => void;
 }
 
+type Confirm = "delete" | "unassign" | null;
+
 export function CaseDetailDialog({ caseItem, professionals, onOpenChange, onSaved }: Props) {
   const { profile } = useAuth();
   const [urgency, setUrgency] = useState<Urgency>("media");
@@ -54,7 +56,9 @@ export function CaseDetailDialog({ caseItem, professionals, onOpenChange, onSave
   const [assigned, setAssigned] = useState<string>("");
   const [notes, setNotes] = useState("");
   const [saving, setSaving] = useState(false);
+  const [acting, setActing] = useState(false);
   const [feedback, setFeedback] = useState<string | null>(null);
+  const [confirm, setConfirm] = useState<Confirm>(null);
 
   const [appointments, setAppointments] = useState<Appointment[]>([]);
   const [apptWhen, setApptWhen] = useState("");
@@ -69,6 +73,7 @@ export function CaseDetailDialog({ caseItem, professionals, onOpenChange, onSave
     setAssigned(caseItem.assigned_professional_id ?? "");
     setNotes(caseItem.notes ?? "");
     setFeedback(null);
+    setConfirm(null);
     setSchedulingErr(null);
     void loadAppointments(caseItem.id);
   }, [caseItem]);
@@ -111,6 +116,30 @@ export function CaseDetailDialog({ caseItem, professionals, onOpenChange, onSave
     onSaved();
   }
 
+  async function handleDelete() {
+    if (!caseItem) return;
+    setActing(true);
+    await supabase.from("cases").delete().eq("id", caseItem.id);
+    setActing(false);
+    onSaved();
+    onOpenChange(false);
+  }
+
+  async function handleUnassign() {
+    if (!caseItem) return;
+    setActing(true);
+    await supabase
+      .from("cases")
+      .update({ assigned_professional_id: null, status: "nuevo" })
+      .eq("id", caseItem.id);
+    setActing(false);
+    setConfirm(null);
+    setAssigned("");
+    setStatus("nuevo");
+    setFeedback("Caso desasignado y devuelto a 'Nuevo'.");
+    onSaved();
+  }
+
   async function addAppointment() {
     if (!caseItem) return;
     setSchedulingErr(null);
@@ -129,6 +158,8 @@ export function CaseDetailDialog({ caseItem, professionals, onOpenChange, onSave
     await loadAppointments(caseItem.id);
   }
 
+  const isAssigned = !!caseItem.assigned_professional_id;
+
   return (
     <Dialog open={!!caseItem} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-2xl">
@@ -139,17 +170,17 @@ export function CaseDetailDialog({ caseItem, professionals, onOpenChange, onSave
 
         {/* Datos del paciente */}
         <div className="grid gap-3 rounded-md border border-border bg-muted/30 p-3 text-sm sm:grid-cols-2">
-          <Info label="WhatsApp" value={caseItem.whatsapp} />
-          {caseItem.email && <Info label="Correo" value={caseItem.email} />}
-          <Info label="Edad / Ciudad" value={`${caseItem.patient_age ?? "—"} · ${caseItem.city ?? "—"}`} />
-          <Info label="Via preferida" value={PREF_MODALITY_LABEL[caseItem.preferred_modality]} />
+          <InfoRow label="WhatsApp" value={caseItem.whatsapp} />
+          {caseItem.email && <InfoRow label="Correo" value={caseItem.email} />}
+          <InfoRow label="Edad / Ciudad" value={`${caseItem.patient_age ?? "—"} · ${caseItem.city ?? "—"}`} />
+          <InfoRow label="Via preferida" value={PREF_MODALITY_LABEL[caseItem.preferred_modality]} />
           {caseItem.has_stable_conn && (
-            <Info label="Conexion estable" value={STABLE_CONN_LABEL[caseItem.has_stable_conn]} />
+            <InfoRow label="Conexion estable" value={STABLE_CONN_LABEL[caseItem.has_stable_conn]} />
           )}
-          {caseItem.available_days && <Info label="Dias" value={caseItem.available_days} full />}
-          {caseItem.available_times && <Info label="Horarios" value={caseItem.available_times} full />}
-          {caseItem.availability && <Info label="Detalle horario" value={caseItem.availability} full />}
-          {caseItem.observations && <Info label="Observaciones" value={caseItem.observations} full />}
+          {caseItem.available_days && <InfoRow label="Dias" value={caseItem.available_days} full />}
+          {caseItem.available_times && <InfoRow label="Horarios" value={caseItem.available_times} full />}
+          {caseItem.availability && <InfoRow label="Detalle horario" value={caseItem.availability} full />}
+          {caseItem.observations && <InfoRow label="Observaciones" value={caseItem.observations} full />}
         </div>
 
         {/* Edicion */}
@@ -191,12 +222,93 @@ export function CaseDetailDialog({ caseItem, professionals, onOpenChange, onSave
           <Textarea value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Notas internas..." />
         </Field>
 
-        <div className="flex items-center justify-between gap-2">
-          {feedback && <span className="text-sm text-muted-foreground">{feedback}</span>}
-          <Button onClick={saveCase} disabled={saving} className="ml-auto">
-            {saving && <Spinner className="text-primary-foreground" />} Guardar cambios
-          </Button>
+        {/* Fila de acciones */}
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <div className="flex flex-wrap gap-2">
+            {isAssigned && !confirm && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setConfirm("unassign")}
+                className="gap-1.5 border-warning/40 text-warning hover:bg-warning/10 hover:text-warning"
+              >
+                <UserMinus className="size-3.5" />
+                Desasignar
+              </Button>
+            )}
+            {!confirm && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setConfirm("delete")}
+                className="gap-1.5 border-destructive/40 text-destructive hover:bg-destructive/10 hover:text-destructive"
+              >
+                <Trash2 className="size-3.5" />
+                Eliminar caso
+              </Button>
+            )}
+          </div>
+          <div className="flex items-center gap-3 ml-auto">
+            {feedback && <span className="text-sm text-muted-foreground">{feedback}</span>}
+            <Button onClick={saveCase} disabled={saving || !!confirm}>
+              {saving && <Spinner className="text-primary-foreground" />} Guardar cambios
+            </Button>
+          </div>
         </div>
+
+        {/* Panel de confirmacion */}
+        {confirm === "delete" && (
+          <div className="rounded-lg border border-destructive/30 bg-destructive/5 p-4 space-y-3">
+            <div className="flex items-start gap-2 text-sm">
+              <AlertTriangle className="mt-0.5 size-4 shrink-0 text-destructive" />
+              <div>
+                <p className="font-semibold text-destructive">¿Eliminar este caso permanentemente?</p>
+                <p className="mt-0.5 text-muted-foreground">
+                  Se borrará el caso y <strong>todas sus citas</strong> de la base de datos.
+                  Esta acción no se puede deshacer.
+                </p>
+              </div>
+            </div>
+            <div className="flex justify-end gap-2">
+              <Button variant="outline" size="sm" onClick={() => setConfirm(null)} disabled={acting}>
+                Cancelar
+              </Button>
+              <Button
+                size="sm"
+                onClick={handleDelete}
+                disabled={acting}
+                className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              >
+                {acting && <Spinner className="text-destructive-foreground" />}
+                Eliminar permanentemente
+              </Button>
+            </div>
+          </div>
+        )}
+
+        {confirm === "unassign" && (
+          <div className="rounded-lg border border-warning/30 bg-warning/5 p-4 space-y-3">
+            <div className="flex items-start gap-2 text-sm">
+              <InfoIcon className="mt-0.5 size-4 shrink-0 text-warning" />
+              <div>
+                <p className="font-semibold text-foreground">¿Desasignar al profesional?</p>
+                <p className="mt-0.5 text-muted-foreground">
+                  El caso <strong>no se borrará</strong>. Solo se quitará la asignación al profesional
+                  y el estado volverá a "Nuevo" para poder reasignarlo.
+                </p>
+              </div>
+            </div>
+            <div className="flex justify-end gap-2">
+              <Button variant="outline" size="sm" onClick={() => setConfirm(null)} disabled={acting}>
+                Cancelar
+              </Button>
+              <Button size="sm" onClick={handleUnassign} disabled={acting}>
+                {acting && <Spinner className="text-primary-foreground" />}
+                Confirmar desasignación
+              </Button>
+            </div>
+          </div>
+        )}
 
         {/* Citas */}
         <div className="space-y-3 border-t border-border pt-4">
@@ -251,7 +363,7 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
   );
 }
 
-function Info({ label, value, full }: { label: string; value: string; full?: boolean }) {
+function InfoRow({ label, value, full }: { label: string; value: string; full?: boolean }) {
   return (
     <div className={full ? "sm:col-span-2" : ""}>
       <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">{label}</p>

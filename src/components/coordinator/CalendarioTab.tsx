@@ -97,6 +97,7 @@ export function CalendarioTab() {
               setSlotPreset({ professionalId, time });
               setScheduleOpen(true);
             }}
+            onCaseChanged={() => void reload()}
           />
         </div>
       </div>
