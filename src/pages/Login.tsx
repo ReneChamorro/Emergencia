@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { HeartPulse } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
@@ -25,6 +25,7 @@ export default function Login() {
   const [error, setError] = useState<string | null>(null);
   const [info, setInfo] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const inFlight = useRef(false);
 
   // Si ya hay sesion con perfil, redirige al panel.
   useEffect(() => {
@@ -38,6 +39,8 @@ export default function Login() {
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
+    if (inFlight.current) return;
+    inFlight.current = true;
     setError(null);
     setInfo(null);
     setSubmitting(true);
@@ -61,6 +64,7 @@ export default function Login() {
         }
       }
     } finally {
+      inFlight.current = false;
       setSubmitting(false);
     }
   }
@@ -198,10 +202,12 @@ function traducirError(msg: string): string {
   if (/invalid login credentials/i.test(msg))
     return "Correo o contrasena incorrectos.";
   if (/email not confirmed/i.test(msg))
-    return "Tu correo aun no ha sido confirmado.";
+    return "Tu correo aun no ha sido confirmado. Revisa tu bandeja de entrada (o spam).";
   if (/user already registered/i.test(msg))
-    return "Ya existe una cuenta con ese correo.";
+    return "Ya existe una cuenta con ese correo. Inicia sesion en su lugar.";
   if (/password should be at least/i.test(msg))
     return "La contrasena debe tener al menos 6 caracteres.";
+  if (/rate limit|too many requests|over_email_send_rate_limit/i.test(msg))
+    return "Se enviaron demasiados intentos en poco tiempo. Espera unos minutos y vuelve a intentarlo.";
   return msg;
 }
