@@ -41,10 +41,19 @@ export default function Profesional() {
   const { blocks: myBlocks } = useMyAvailability();
 
   async function load() {
+    if (!profile?.id) return;
     setLoading(true);
     const [caseRes, apptRes] = await Promise.all([
-      supabase.from("cases").select("*").order("created_at", { ascending: false }),
-      supabase.from("appointments").select("*").order("scheduled_at", { ascending: true }),
+      supabase
+        .from("cases")
+        .select("*")
+        .eq("assigned_professional_id", profile.id)
+        .order("created_at", { ascending: false }),
+      supabase
+        .from("appointments")
+        .select("*")
+        .eq("professional_id", profile.id)
+        .order("scheduled_at", { ascending: true }),
     ]);
     const list = ((caseRes.data as Case[]) ?? []).sort(
       (a, b) => URGENCY_ORDER[a.urgency] - URGENCY_ORDER[b.urgency]
@@ -54,7 +63,7 @@ export default function Profesional() {
     setLoading(false);
   }
 
-  useEffect(() => { void load(); }, []);
+  useEffect(() => { void load(); }, [profile?.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
   if (loading) return <FullPageSpinner label="Cargando tus casos..." />;
 
