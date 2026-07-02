@@ -1,63 +1,130 @@
 import { useMemo, useState } from "react";
 import { useProfessionals } from "@/hooks/useProfessionals";
-import { useCalendarAppointments } from "@/hooks/useCalendarAppointments";
+import { useCalendarAppointments, useRangeAppointments } from "@/hooks/useCalendarAppointments";
 import { useAllAvailabilityBlocks } from "@/hooks/useAvailabilityBlocks";
-import { toDateKey, dateToDayOfWeek } from "@/lib/calendarUtils";
+import {
+  toDateKey,
+  dateToDayOfWeek,
+  timeOfDay,
+  parseDateInput,
+  groupByDate,
+  type AppointmentFull,
+} from "@/lib/calendarUtils";
 import { MonthCalendar } from "./MonthCalendar";
 import { DayDetailPanel } from "./DayDetailPanel";
 import { QuickScheduleDialog } from "./QuickScheduleDialog";
+import { AgendaList } from "./AgendaList";
+import {
+  CalendarFilters,
+  EMPTY_FILTERS,
+  isRangeActive,
+  type CalendarFilterState,
+} from "./CalendarFilters";
 import { Spinner } from "@/components/ui/spinner";
+
+/** Predicado de filtros aplicado a una cita (médico + franja + estado + urgencia). */
+function matchesFilters(a: AppointmentFull, f: CalendarFilterState): boolean {
+  if (f.professionalId !== "todos" && a.professional_id !== f.professionalId) return false;
+  if (f.franja !== "todas" && timeOfDay(a.scheduled_at) !== f.franja) return false;
+  if (f.apptStatus !== "todas" && a.status !== f.apptStatus) return false;
+  if (f.urgency !== "todas" && (a.case?.urgency ?? null) !== f.urgency) return false;
+  return true;
+}
 
 export function CalendarioTab() {
   const [month, setMonth] = useState(() => new Date());
   const [selectedDay, setSelectedDay] = useState(() => new Date());
   const [scheduleOpen, setScheduleOpen] = useState(false);
   const [slotPreset, setSlotPreset] = useState<{ professionalId: string; time: string } | null>(null);
+  const [filters, setFilters] = useState<CalendarFilterState>(EMPTY_FILTERS);
 
   const { professionals } = useProfessionals();
-  const { byDate, loading, reload } = useCalendarAppointments(month);
+  const { appointments, loading, reload } = useCalendarAppointments(month);
   const { blocks: availabilityBlocks } = useAllAvailabilityBlocks();
 
+  const rangeActive = isRangeActive(filters);
+  const rangeFrom = filters.from ? parseDateInput(filters.from) : null;
+  const rangeTo = filters.to ? parseDateInput(filters.to) : null;
+  const { appointments: rangeAppts, loading: rangeLoading } = useRangeAppointments(
+    rangeFrom,
+    rangeTo,
+    rangeActive
+  );
+
+  // Citas del mes que pasan los filtros → dots del calendario
+  const filteredByDate = useMemo(() => {
+    const list = appointments.filter((a) => matchesFilters(a, filters));
+    return groupByDate(list);
+  }, [appointments, filters]);
+
   const dayKey = toDateKey(selectedDay);
-  const dayAppointments = byDate.get(dayKey) ?? [];
+  const dayAppointments = filteredByDate.get(dayKey) ?? [];
 
   const dayOfWeek = dateToDayOfWeek(selectedDay);
 
-  // Bloques del dia seleccionado: recurrentes (por dia semana) + puntuales (por fecha exacta)
+  // Bloques del dia seleccionado: recurrentes + puntuales, respetando el filtro de médico
   const dayAvailability = useMemo(
     () =>
       availabilityBlocks.filter(
         (b) =>
-          (b.specific_date === null && b.day_of_week === dayOfWeek) ||
-          b.specific_date === dayKey
+          ((b.specific_date === null && b.day_of_week === dayOfWeek) ||
+            b.specific_date === dayKey) &&
+          (filters.professionalId === "todos" || b.professional_id === filters.professionalId)
       ),
-    [availabilityBlocks, dayOfWeek, dayKey]
+    [availabilityBlocks, dayOfWeek, dayKey, filters.professionalId]
   );
 
-  // Dias de la semana con disponibilidad recurrente → punto azul en el mes
+  // Dots de disponibilidad (respetan el filtro de médico)
+  const visibleBlocks = useMemo(
+    () =>
+      filters.professionalId === "todos"
+        ? availabilityBlocks
+        : availabilityBlocks.filter((b) => b.professional_id === filters.professionalId),
+    [availabilityBlocks, filters.professionalId]
+  );
+
   const availabilityDows = useMemo(
     () =>
       new Set(
-        availabilityBlocks
+        visibleBlocks
           .filter((b) => b.specific_date === null && b.day_of_week !== null)
           .map((b) => b.day_of_week as number)
       ),
-    [availabilityBlocks]
+    [visibleBlocks]
   );
 
-  // Fechas concretas con disponibilidad puntual → punto azul en la celda exacta
   const availabilitySpecificDates = useMemo(
     () =>
       new Set(
-        availabilityBlocks
+        visibleBlocks
           .filter((b) => b.specific_date !== null)
           .map((b) => b.specific_date as string)
       ),
-    [availabilityBlocks]
+    [visibleBlocks]
   );
+
+  // Citas del rango que pasan los filtros → vista de agenda
+  const filteredRangeAppts = useMemo(
+    () => rangeAppts.filter((a) => matchesFilters(a, filters)),
+    [rangeAppts, filters]
+  );
+
+  function goToDate(dateStr: string) {
+    const d = parseDateInput(dateStr);
+    setFilters((f) => ({ ...f, from: "", to: "" }));
+    setMonth(new Date(d.getFullYear(), d.getMonth(), 1));
+    setSelectedDay(d);
+  }
 
   return (
     <>
+      <CalendarFilters
+        professionals={professionals}
+        value={filters}
+        onChange={setFilters}
+        onGoToDate={goToDate}
+      />
+
       <div className="grid gap-6 lg:grid-cols-[340px_1fr]">
         {/* Panel izquierdo: calendario */}
         <div className="rounded-lg border border-border bg-card p-4 shadow-sm">
@@ -70,7 +137,7 @@ export function CalendarioTab() {
           <MonthCalendar
             month={month}
             selectedDay={selectedDay}
-            byDate={byDate}
+            byDate={filteredByDate}
             availabilityDows={availabilityDows}
             availabilitySpecificDates={availabilitySpecificDates}
             onDaySelect={setSelectedDay}
@@ -82,23 +149,32 @@ export function CalendarioTab() {
           />
         </div>
 
-        {/* Panel derecho: detalle del día */}
+        {/* Panel derecho: agenda (rango activo) o detalle del día */}
         <div className="rounded-lg border border-border bg-card p-4 shadow-sm">
-          <DayDetailPanel
-            day={selectedDay}
-            appointments={dayAppointments}
-            availability={dayAvailability}
-            professionals={professionals}
-            onNewAppointment={() => {
-              setSlotPreset(null);
-              setScheduleOpen(true);
-            }}
-            onSlotClick={(professionalId, time) => {
-              setSlotPreset({ professionalId, time });
-              setScheduleOpen(true);
-            }}
-            onCaseChanged={() => void reload()}
-          />
+          {rangeActive && rangeFrom && rangeTo ? (
+            <AgendaList
+              appointments={filteredRangeAppts}
+              loading={rangeLoading}
+              from={rangeFrom}
+              to={rangeTo}
+            />
+          ) : (
+            <DayDetailPanel
+              day={selectedDay}
+              appointments={dayAppointments}
+              availability={dayAvailability}
+              professionals={professionals}
+              onNewAppointment={() => {
+                setSlotPreset(null);
+                setScheduleOpen(true);
+              }}
+              onSlotClick={(professionalId, time) => {
+                setSlotPreset({ professionalId, time });
+                setScheduleOpen(true);
+              }}
+              onCaseChanged={() => void reload()}
+            />
+          )}
         </div>
       </div>
 

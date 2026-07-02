@@ -16,7 +16,9 @@ import {
   STABLE_CONN_LABEL,
   STATUS_LABEL,
   URGENCY_LABEL,
+  citaAsignadaMsg,
   formatDateTime,
+  waLink,
 } from "@/lib/domain";
 import {
   Dialog,
@@ -38,7 +40,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Spinner } from "@/components/ui/spinner";
-import { AlertTriangle, CalendarPlus, Info as InfoIcon, Trash2, UserMinus } from "lucide-react";
+import { AlertTriangle, CalendarPlus, Info as InfoIcon, MessageCircle, Trash2, UserMinus } from "lucide-react";
 
 interface Props {
   caseItem: Case | null;
@@ -119,8 +121,19 @@ export function CaseDetailDialog({ caseItem, professionals, onOpenChange, onSave
   async function handleDelete() {
     if (!caseItem) return;
     setActing(true);
-    await supabase.from("cases").delete().eq("id", caseItem.id);
+    setFeedback(null);
+    // .select() para detectar el fallo silencioso de RLS (0 filas, sin error).
+    const { data, error } = await supabase
+      .from("cases")
+      .delete()
+      .eq("id", caseItem.id)
+      .select("id");
     setActing(false);
+    if (error || !data || data.length === 0) {
+      setConfirm(null);
+      setFeedback("No se pudo eliminar el caso (permisos). Contacta al administrador.");
+      return;
+    }
     onSaved();
     onOpenChange(false);
   }
@@ -320,11 +333,21 @@ export function CaseDetailDialog({ caseItem, professionals, onOpenChange, onSave
           ) : (
             <ul className="space-y-1.5">
               {appointments.map((a) => (
-                <li key={a.id} className="flex items-center justify-between rounded-md border border-border px-3 py-2 text-sm">
+                <li key={a.id} className="flex flex-wrap items-center justify-between gap-2 rounded-md border border-border px-3 py-2 text-sm">
                   <span>{formatDateTime(a.scheduled_at)} · {MODALITY_LABEL[a.modality]} (contacto {a.contact_number}/3)</span>
-                  <Badge className="border-border bg-secondary text-secondary-foreground">
-                    {APPT_STATUS_LABEL[a.status]}
-                  </Badge>
+                  <div className="flex items-center gap-2">
+                    <a
+                      href={waLink(caseItem.whatsapp, citaAsignadaMsg(a.scheduled_at))}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="inline-flex items-center gap-1 rounded-md border border-success/40 px-2 py-1 text-xs font-medium text-success transition-colors hover:bg-success/10"
+                    >
+                      <MessageCircle className="size-3.5" /> Enviar por WhatsApp
+                    </a>
+                    <Badge className="border-border bg-secondary text-secondary-foreground">
+                      {APPT_STATUS_LABEL[a.status]}
+                    </Badge>
+                  </div>
                 </li>
               ))}
             </ul>

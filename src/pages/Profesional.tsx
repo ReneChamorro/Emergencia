@@ -11,7 +11,9 @@ import {
   URGENCY_BADGE,
   URGENCY_LABEL,
   URGENCY_ORDER,
+  citaAsignadaMsg,
   formatDateTime,
+  waLink,
 } from "@/lib/domain";
 import { useMyAvailability } from "@/hooks/useAvailabilityBlocks";
 import { StaffLayout } from "@/components/StaffLayout";
@@ -31,7 +33,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { AlertTriangle, CalendarClock, CalendarPlus, Phone, UserMinus } from "lucide-react";
+import { AlertTriangle, CalendarClock, CalendarPlus, MessageCircle, Phone, UserMinus } from "lucide-react";
 
 export default function Profesional() {
   const { profile } = useAuth();
@@ -248,14 +250,24 @@ function ProfessionalCaseCard({
                 <span className="tabular-nums">
                   {formatDateTime(a.scheduled_at)} · {MODALITY_LABEL[a.modality]} (contacto {a.contact_number}/3)
                 </span>
-                <Select value={a.status} onValueChange={(v) => void setApptStatus(a.id, v as ApptStatus)}>
-                  <SelectTrigger className="h-9 w-[150px]"><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    {(["programada", "realizada", "cancelada", "no_asistio"] as ApptStatus[]).map((s) => (
-                      <SelectItem key={s} value={s}>{APPT_STATUS_LABEL[s]}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <div className="flex items-center gap-2">
+                  <a
+                    href={waLink(caseItem.whatsapp, citaAsignadaMsg(a.scheduled_at))}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="inline-flex items-center gap-1 rounded-md border border-success/40 px-2 py-1 text-xs font-medium text-success transition-colors hover:bg-success/10"
+                  >
+                    <MessageCircle className="size-3.5" /> WhatsApp
+                  </a>
+                  <Select value={a.status} onValueChange={(v) => void setApptStatus(a.id, v as ApptStatus)}>
+                    <SelectTrigger className="h-9 w-[150px]"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      {(["programada", "realizada", "cancelada", "no_asistio"] as ApptStatus[]).map((s) => (
+                        <SelectItem key={s} value={s}>{APPT_STATUS_LABEL[s]}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
               </div>
             ))}
             <p className="text-xs text-muted-foreground">

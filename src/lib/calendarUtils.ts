@@ -125,6 +125,27 @@ export function toDateKey(d: Date): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 }
 
+// ---------- Franja horaria ----------
+
+export type TimeOfDay = "manana" | "tarde" | "noche";
+
+/**
+ * Franja horaria de una cita segun la hora local:
+ * mañana 00:00–11:59, tarde 12:00–18:59, noche 19:00–23:59.
+ */
+export function timeOfDay(iso: string): TimeOfDay {
+  const h = new Date(iso).getHours();
+  if (h < 12) return "manana";
+  if (h < 19) return "tarde";
+  return "noche";
+}
+
+export const TIME_OF_DAY_LABEL: Record<TimeOfDay, string> = {
+  manana: "Mañana",
+  tarde: "Tarde",
+  noche: "Noche",
+};
+
 // ---------- Agrupacion ----------
 
 export function groupByDate(

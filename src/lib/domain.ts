@@ -6,6 +6,7 @@ import type {
   PrefModality,
   StableConn,
 } from "@/types/database";
+import { formatTime } from "@/lib/calendarUtils";
 
 // ---------- Etiquetas y estilos ----------
 
@@ -90,4 +91,26 @@ export function formatDate(iso: string): string {
   } catch {
     return iso;
   }
+}
+
+// ---------- WhatsApp ----------
+
+/**
+ * Construye un deep link wa.me. Normaliza el numero a digitos internacionales:
+ * un numero local venezolano "0412…" se convierte en "58412…".
+ * Si se pasa `text`, se adjunta como mensaje predeterminado.
+ */
+export function waLink(whatsapp: string, text?: string): string {
+  let digits = whatsapp.replace(/[^\d]/g, "");
+  if (digits.startsWith("0")) digits = "58" + digits.slice(1);
+  const base = `https://wa.me/${digits}`;
+  return text ? `${base}?text=${encodeURIComponent(text)}` : base;
+}
+
+/** Mensaje predeterminado que se envia al paciente cuando se le asigna una cita. */
+export function citaAsignadaMsg(scheduledAt: string): string {
+  return (
+    "Su cita con Apoyo Psicologico de Emergencia ha sido asignada el dia " +
+    `${formatDate(scheduledAt)} a las ${formatTime(scheduledAt)}.`
+  );
 }

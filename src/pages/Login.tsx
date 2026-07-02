@@ -5,6 +5,7 @@ import { useAuth } from "@/context/AuthContext";
 import { supabase, isSupabaseConfigured } from "@/lib/supabase";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { PasswordInput } from "@/components/ui/password-input";
 import { Label } from "@/components/ui/label";
 import {
   Card,
@@ -103,6 +104,7 @@ export default function Login() {
                 <Label htmlFor="fullName">Nombre completo</Label>
                 <Input
                   id="fullName"
+                  name="name"
                   value={fullName}
                   onChange={(e) => setFullName(e.target.value)}
                   autoComplete="name"
@@ -114,6 +116,7 @@ export default function Login() {
               <Label htmlFor="email">Correo</Label>
               <Input
                 id="email"
+                name="email"
                 type="email"
                 inputMode="email"
                 value={email}
@@ -124,9 +127,9 @@ export default function Login() {
             </div>
             <div className="space-y-1.5">
               <Label htmlFor="password">Contrasena</Label>
-              <Input
+              <PasswordInput
                 id="password"
-                type="password"
+                name="password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 autoComplete={

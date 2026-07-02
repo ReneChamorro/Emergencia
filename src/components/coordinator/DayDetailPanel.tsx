@@ -9,6 +9,8 @@ import {
   MODALITY_LABEL,
   URGENCY_BADGE,
   URGENCY_LABEL,
+  citaAsignadaMsg,
+  waLink,
 } from "@/lib/domain";
 import {
   formatDayHeader,
@@ -305,11 +307,12 @@ function AppointmentRow({
         <div className="mt-0.5 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
           {a.case?.whatsapp && (
             <a
-              href={`https://wa.me/${a.case.whatsapp.replace(/[^\d]/g, "")}`}
+              href={waLink(a.case.whatsapp, citaAsignadaMsg(a.scheduled_at))}
               target="_blank"
               rel="noreferrer"
               className="inline-flex items-center gap-1 text-accent hover:underline"
               onClick={(e) => e.stopPropagation()}
+              title="Abrir WhatsApp con el mensaje de la cita"
             >
               <Phone className="size-3" />
               {a.case.whatsapp}
