@@ -1,9 +1,10 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/context/AuthContext";
 import type {
   ApptModality,
   Appointment,
+  AvailabilityBlock,
   Case,
   CaseStatus,
   Profile,
@@ -20,6 +21,17 @@ import {
   formatDateTime,
   waLink,
 } from "@/lib/domain";
+import {
+  buildHourSlots,
+  endOfDay,
+  formatTime,
+  getBlocksForDate,
+  parseDateInput,
+  startOfDay,
+  timeInRange,
+  toDateInputValue,
+} from "@/lib/calendarUtils";
+import { cn } from "@/lib/utils";
 import {
   Dialog,
   DialogContent,
@@ -63,10 +75,15 @@ export function CaseDetailDialog({ caseItem, professionals, onOpenChange, onSave
   const [confirm, setConfirm] = useState<Confirm>(null);
 
   const [appointments, setAppointments] = useState<Appointment[]>([]);
-  const [apptWhen, setApptWhen] = useState("");
+  const [apptDate, setApptDate] = useState(() => toDateInputValue(new Date()));
+  const [selectedStart, setSelectedStart] = useState<string | null>(null);
   const [apptModality, setApptModality] = useState<ApptModality>("videollamada");
   const [apptContactNo, setApptContactNo] = useState("1");
   const [schedulingErr, setSchedulingErr] = useState<string | null>(null);
+
+  const [assignedBlocks, setAssignedBlocks] = useState<AvailabilityBlock[]>([]);
+  const [occupied, setOccupied] = useState<string[]>([]);
+  const [loadingSlots, setLoadingSlots] = useState(false);
 
   useEffect(() => {
     if (!caseItem) return;
@@ -77,6 +94,8 @@ export function CaseDetailDialog({ caseItem, professionals, onOpenChange, onSave
     setFeedback(null);
     setConfirm(null);
     setSchedulingErr(null);
+    setSelectedStart(null);
+    setApptDate(toDateInputValue(new Date()));
     void loadAppointments(caseItem.id);
   }, [caseItem]);
 
@@ -86,8 +105,58 @@ export function CaseDetailDialog({ caseItem, professionals, onOpenChange, onSave
       .select("*")
       .eq("case_id", caseId)
       .order("scheduled_at", { ascending: true });
-    setAppointments((data as Appointment[]) ?? []);
+    const list = (data as Appointment[]) ?? [];
+    setAppointments(list);
+    // Pre-seleccionar el siguiente numero de contacto
+    const maxContact = list.length ? Math.max(...list.map((a) => a.contact_number)) : 0;
+    setApptContactNo(String(Math.min(maxContact + 1, 3)));
   }
+
+  // Cargar los bloques de disponibilidad del profesional asignado
+  useEffect(() => {
+    if (!assigned) { setAssignedBlocks([]); return; }
+    let cancelled = false;
+    supabase
+      .from("availability_blocks")
+      .select("*")
+      .eq("professional_id", assigned)
+      .then(({ data }) => {
+        if (!cancelled) setAssignedBlocks((data as AvailabilityBlock[]) ?? []);
+      });
+    return () => { cancelled = true; };
+  }, [assigned]);
+
+  // Cargar las citas ocupadas del profesional para la fecha elegida
+  useEffect(() => {
+    if (!assigned || !apptDate) { setOccupied([]); return; }
+    let cancelled = false;
+    setLoadingSlots(true);
+    setSelectedStart(null);
+    const d = parseDateInput(apptDate);
+    supabase
+      .from("appointments")
+      .select("scheduled_at")
+      .eq("professional_id", assigned)
+      .gte("scheduled_at", startOfDay(d).toISOString())
+      .lte("scheduled_at", endOfDay(d).toISOString())
+      .then(({ data }) => {
+        if (cancelled) return;
+        setOccupied(((data as { scheduled_at: string }[]) ?? []).map((a) => formatTime(a.scheduled_at)));
+        setLoadingSlots(false);
+      });
+    return () => { cancelled = true; };
+  }, [assigned, apptDate]);
+
+  const slots = useMemo(() => {
+    if (!apptDate || assignedBlocks.length === 0) return [];
+    const dayBlocks = getBlocksForDate(assignedBlocks, parseDateInput(apptDate));
+    return buildHourSlots(dayBlocks).filter(
+      (s) => !occupied.some((t) => timeInRange(t, s.start, s.end))
+    );
+  }, [apptDate, assignedBlocks, occupied]);
+
+  // Bloqueo de profesional: si ya hay una 2.ª cita (contacto >= 2), no se puede reasignar.
+  const professionalLocked = appointments.some((a) => a.contact_number >= 2);
 
   if (!caseItem) return null;
 
@@ -112,7 +181,14 @@ export function CaseDetailDialog({ caseItem, professionals, onOpenChange, onSave
       });
     }
     setSaving(false);
-    if (error) { setFeedback("No se pudo guardar."); return; }
+    if (error) {
+      setFeedback(
+        /no se puede cambiar de profesional/i.test(error.message)
+          ? "No se puede cambiar de profesional: el caso ya tiene una segunda cita agendada."
+          : "No se pudo guardar."
+      );
+      return;
+    }
     setStatus(nextStatus);
     setFeedback("Cambios guardados.");
     onSaved();
@@ -156,18 +232,22 @@ export function CaseDetailDialog({ caseItem, professionals, onOpenChange, onSave
   async function addAppointment() {
     if (!caseItem) return;
     setSchedulingErr(null);
-    if (!apptWhen) { setSchedulingErr("Indica fecha y hora."); return; }
     if (!assigned) { setSchedulingErr("Primero asigna un profesional y guarda."); return; }
+    if (!selectedStart) { setSchedulingErr("Selecciona una franja horaria disponible."); return; }
+    const [h, m] = selectedStart.split(":").map(Number);
+    const dt = parseDateInput(apptDate);
+    dt.setHours(h, m, 0, 0);
     const { error } = await supabase.from("appointments").insert({
       case_id: caseItem.id,
       professional_id: assigned,
-      scheduled_at: new Date(apptWhen).toISOString(),
+      scheduled_at: dt.toISOString(),
       modality: apptModality,
       contact_number: Number(apptContactNo),
       created_by: profile?.id ?? null,
     });
     if (error) { setSchedulingErr("No se pudo agendar la cita."); return; }
-    setApptWhen("");
+    setOccupied((prev) => [...prev, selectedStart]);
+    setSelectedStart(null);
     await loadAppointments(caseItem.id);
   }
 
@@ -219,7 +299,11 @@ export function CaseDetailDialog({ caseItem, professionals, onOpenChange, onSave
             </Select>
           </Field>
           <Field label="Profesional">
-            <Select value={assigned || "none"} onValueChange={(v) => setAssigned(v === "none" ? "" : v)}>
+            <Select
+              value={assigned || "none"}
+              onValueChange={(v) => setAssigned(v === "none" ? "" : v)}
+              disabled={professionalLocked}
+            >
               <SelectTrigger><SelectValue placeholder="Sin asignar" /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="none">Sin asignar</SelectItem>
@@ -228,6 +312,11 @@ export function CaseDetailDialog({ caseItem, professionals, onOpenChange, onSave
                 ))}
               </SelectContent>
             </Select>
+            {professionalLocked && (
+              <p className="text-xs text-muted-foreground">
+                Bloqueado al profesional actual: el caso ya tiene una segunda cita.
+              </p>
+            )}
           </Field>
         </div>
 
@@ -352,24 +441,85 @@ export function CaseDetailDialog({ caseItem, professionals, onOpenChange, onSave
               ))}
             </ul>
           )}
-          <div className="grid gap-2 sm:grid-cols-[1fr_auto_auto_auto]">
-            <Input type="datetime-local" value={apptWhen} onChange={(e) => setApptWhen(e.target.value)} aria-label="Fecha y hora" />
-            <Select value={apptModality} onValueChange={(v) => setApptModality(v as ApptModality)}>
-              <SelectTrigger className="w-[150px]"><SelectValue /></SelectTrigger>
-              <SelectContent>
-                {(["videollamada", "llamada"] as ApptModality[]).map((m) => (
-                  <SelectItem key={m} value={m}>{MODALITY_LABEL[m]}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            <Select value={apptContactNo} onValueChange={setApptContactNo}>
-              <SelectTrigger className="w-[120px]"><SelectValue /></SelectTrigger>
-              <SelectContent>
-                {[1, 2, 3].map((n) => <SelectItem key={n} value={String(n)}>Contacto {n}</SelectItem>)}
-              </SelectContent>
-            </Select>
-            <Button variant="accent" onClick={addAppointment}>Agendar</Button>
-          </div>
+          {!assigned ? (
+            <p className="rounded-md border border-dashed border-border p-3 text-sm text-muted-foreground">
+              Asigna un profesional y guarda los cambios para poder agendar una cita dentro de su
+              disponibilidad.
+            </p>
+          ) : (
+            <div className="space-y-3 rounded-md border border-border p-3">
+              <div className="grid gap-3 sm:grid-cols-[1fr_150px_140px]">
+                <div className="space-y-1.5">
+                  <Label htmlFor="appt-date">Fecha</Label>
+                  <Input
+                    id="appt-date"
+                    type="date"
+                    value={apptDate}
+                    min={toDateInputValue(new Date())}
+                    onChange={(e) => setApptDate(e.target.value)}
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <Label>Modalidad</Label>
+                  <Select value={apptModality} onValueChange={(v) => setApptModality(v as ApptModality)}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      {(["videollamada", "llamada"] as ApptModality[]).map((m) => (
+                        <SelectItem key={m} value={m}>{MODALITY_LABEL[m]}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-1.5">
+                  <Label>Contacto</Label>
+                  <Select value={apptContactNo} onValueChange={setApptContactNo}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      {[1, 2, 3].map((n) => <SelectItem key={n} value={String(n)}>Contacto {n}/3</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+
+              <div className="space-y-1.5">
+                <Label>Franjas disponibles</Label>
+                {loadingSlots ? (
+                  <div className="flex items-center gap-2 py-2 text-sm text-muted-foreground">
+                    <Spinner className="size-4" /> Cargando...
+                  </div>
+                ) : slots.length === 0 ? (
+                  <p className="rounded-md border border-dashed border-border p-3 text-sm text-muted-foreground">
+                    Este profesional no tiene disponibilidad (o ya está ocupada) para este día.
+                    Cambia la fecha o revisa su disponibilidad.
+                  </p>
+                ) : (
+                  <div className="grid grid-cols-4 gap-2 sm:grid-cols-6">
+                    {slots.map((s) => (
+                      <button
+                        key={s.start}
+                        type="button"
+                        onClick={() => setSelectedStart(s.start)}
+                        className={cn(
+                          "rounded-md border-2 px-2 py-2 text-sm font-medium tabular-nums transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+                          selectedStart === s.start
+                            ? "border-accent bg-accent/10 text-accent"
+                            : "border-input bg-background text-foreground hover:bg-secondary"
+                        )}
+                      >
+                        {s.start}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              <div className="flex justify-end">
+                <Button variant="accent" onClick={addAppointment} disabled={!selectedStart}>
+                  Agendar
+                </Button>
+              </div>
+            </div>
+          )}
           {schedulingErr && <p role="alert" className="text-sm text-destructive">{schedulingErr}</p>}
         </div>
       </DialogContent>

@@ -57,17 +57,38 @@ export function QuickScheduleDialog({
   const [contactNo, setContactNo] = useState("1");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [caseLocked, setCaseLocked] = useState(false);
 
   // Cargar casos activos al abrir
   useEffect(() => {
     if (!open) return;
     supabase
       .from("cases")
-      .select("id, patient_name, whatsapp, status, urgency")
+      .select("id, patient_name, whatsapp, status, urgency, assigned_professional_id")
       .in("status", ["nuevo", "asignado", "en_contacto"])
       .order("patient_name", { ascending: true })
       .then(({ data }) => setCases((data as Case[]) ?? []));
   }, [open]);
+
+  // Al elegir un caso: preseleccionar su profesional asignado y detectar si esta
+  // bloqueado (ya tiene una 2.ª cita → no se puede cambiar de profesional).
+  useEffect(() => {
+    if (!caseId) { setCaseLocked(false); return; }
+    const c = cases.find((x) => x.id === caseId);
+    if (c?.assigned_professional_id) setProfessionalId(c.assigned_professional_id);
+    let cancelled = false;
+    supabase
+      .from("appointments")
+      .select("contact_number")
+      .eq("case_id", caseId)
+      .then(({ data }) => {
+        if (cancelled) return;
+        const locked = ((data as { contact_number: number }[]) ?? []).some((a) => a.contact_number >= 2);
+        setCaseLocked(locked);
+      });
+    return () => { cancelled = true; };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [caseId, cases]);
 
   // Inicializar/reset al abrir o cerrar
   useEffect(() => {
@@ -189,7 +210,7 @@ export function QuickScheduleDialog({
           {/* Profesional */}
           <div className="space-y-1.5">
             <Label>Profesional</Label>
-            <Select value={professionalId} onValueChange={setProfessionalId}>
+            <Select value={professionalId} onValueChange={setProfessionalId} disabled={caseLocked}>
               <SelectTrigger>
                 <SelectValue placeholder="Selecciona un profesional..." />
               </SelectTrigger>
@@ -201,6 +222,11 @@ export function QuickScheduleDialog({
                 ))}
               </SelectContent>
             </Select>
+            {caseLocked && (
+              <p className="text-xs text-muted-foreground">
+                Este caso ya tiene una segunda cita: queda fijo al profesional asignado.
+              </p>
+            )}
           </div>
 
           {/* Hora */}

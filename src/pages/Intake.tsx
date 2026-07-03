@@ -124,6 +124,20 @@ export default function Intake() {
 
     setSubmitting(true);
     const d = parsed.data;
+
+    // Anti-duplicados: ya existe un caso activo con el mismo nombre + teléfono?
+    const { data: exists, error: existsError } = await supabase.rpc("case_exists", {
+      p_name: d.patient_name,
+      p_whatsapp: d.whatsapp,
+    });
+    if (!existsError && exists === true) {
+      setSubmitting(false);
+      setError(
+        "Tu solicitud ya está en el sistema. Serás contactado cuando se asigne tu cita. No necesitas enviar el formulario otra vez."
+      );
+      return;
+    }
+
     const payload: CaseIntakeInput = {
       patient_name: d.patient_name,
       patient_age: d.patient_age,
@@ -142,7 +156,9 @@ export default function Intake() {
     const { error: insertError } = await supabase.from("cases").insert(payload);
     setSubmitting(false);
     if (insertError) {
-      if (insertError.message.includes("Demasiadas solicitudes")) {
+      if (insertError.code === "23505" || /duplicate key|cases_active_person_uniq/i.test(insertError.message)) {
+        setError("Tu solicitud ya está en el sistema. Serás contactado cuando se asigne tu cita.");
+      } else if (insertError.message.includes("Demasiadas solicitudes")) {
         setError("Ya tienes varias solicitudes recientes. El equipo coordinador te contactara pronto.");
       } else {
         setError("No pudimos registrar tu solicitud. Intenta de nuevo o contacta al equipo.");
@@ -487,6 +503,10 @@ function Shell({ children }: { children: React.ReactNode }) {
           <p className="mx-auto mt-2 max-w-prose text-sm text-muted-foreground">
             Completa este formulario para que el equipo coordinador te asigne un horario
             con un profesional voluntario.
+          </p>
+          <p className="mx-auto mt-2 max-w-prose rounded-md border border-accent/30 bg-accent/5 px-3 py-2 text-xs text-muted-foreground">
+            La cantidad de citas (hasta 3 contactos) la definirá el equipo profesional según tu
+            caso. Con enviar el formulario <strong>una sola vez</strong> es suficiente.
           </p>
         </div>
         {children}

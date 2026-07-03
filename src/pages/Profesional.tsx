@@ -139,8 +139,8 @@ function ProfessionalCaseCard({
   const maxContact = appointments.length
     ? Math.max(...appointments.map((a) => a.contact_number))
     : 0;
-  const canScheduleFollowUp =
-    hasSeenFirst && maxContact < 3 && caseItem.status !== "cerrado" && caseItem.status !== "derivado";
+  const caseOpen = caseItem.status !== "cerrado" && caseItem.status !== "derivado";
+  const reachedLimit = maxContact >= 3;
 
   async function save() {
     setSaving(true);
@@ -239,10 +239,26 @@ function ProfessionalCaseCard({
               <p className="flex items-center gap-1.5 text-sm font-medium text-foreground">
                 <CalendarClock className="size-4 text-accent" /> Citas
               </p>
-              {canScheduleFollowUp && (
-                <Button variant="outline" size="sm" onClick={() => setFollowUpOpen(true)}>
-                  <CalendarPlus className="size-3.5" /> Agendar seguimiento
-                </Button>
+              {caseOpen && (
+                reachedLimit ? (
+                  <span className="text-xs font-medium text-muted-foreground">
+                    Completados los 3 contactos
+                  </span>
+                ) : (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setFollowUpOpen(true)}
+                    disabled={!hasSeenFirst}
+                    title={
+                      !hasSeenFirst
+                        ? "Marca la cita actual como 'Realizada' para habilitar el siguiente contacto."
+                        : undefined
+                    }
+                  >
+                    <CalendarPlus className="size-3.5" /> Agendar próxima cita
+                  </Button>
+                )
               )}
             </div>
             {appointments.map((a) => (
