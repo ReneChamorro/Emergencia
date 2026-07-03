@@ -1,7 +1,9 @@
 import { useMemo, useState } from "react";
+import { supabase } from "@/lib/supabase";
 import { useProfessionals } from "@/hooks/useProfessionals";
 import { useCalendarAppointments, useRangeAppointments } from "@/hooks/useCalendarAppointments";
 import { useAllAvailabilityBlocks } from "@/hooks/useAvailabilityBlocks";
+import type { Case } from "@/types/database";
 import {
   toDateKey,
   dateToDayOfWeek,
@@ -14,6 +16,7 @@ import { MonthCalendar } from "./MonthCalendar";
 import { DayDetailPanel } from "./DayDetailPanel";
 import { QuickScheduleDialog } from "./QuickScheduleDialog";
 import { AgendaList } from "./AgendaList";
+import { CaseDetailDialog } from "./CaseDetailDialog";
 import {
   CalendarFilters,
   EMPTY_FILTERS,
@@ -37,10 +40,17 @@ export function CalendarioTab() {
   const [scheduleOpen, setScheduleOpen] = useState(false);
   const [slotPreset, setSlotPreset] = useState<{ professionalId: string; time: string } | null>(null);
   const [filters, setFilters] = useState<CalendarFilterState>(EMPTY_FILTERS);
+  const [detailCase, setDetailCase] = useState<Case | null>(null);
 
   const { professionals } = useProfessionals();
   const { appointments, loading, reload } = useCalendarAppointments(month);
   const { blocks: availabilityBlocks } = useAllAvailabilityBlocks();
+
+  // Abre el mismo diálogo del panel de casos al clickear una cita en el calendario.
+  async function openCase(caseId: string) {
+    const { data } = await supabase.from("cases").select("*").eq("id", caseId).single();
+    if (data) setDetailCase(data as Case);
+  }
 
   const rangeActive = isRangeActive(filters);
   const rangeFrom = filters.from ? parseDateInput(filters.from) : null;
@@ -157,6 +167,7 @@ export function CalendarioTab() {
               loading={rangeLoading}
               from={rangeFrom}
               to={rangeTo}
+              onOpenCase={openCase}
             />
           ) : (
             <DayDetailPanel
@@ -172,7 +183,7 @@ export function CalendarioTab() {
                 setSlotPreset({ professionalId, time });
                 setScheduleOpen(true);
               }}
-              onCaseChanged={() => void reload()}
+              onOpenCase={openCase}
             />
           )}
         </div>
@@ -186,6 +197,14 @@ export function CalendarioTab() {
         presetProfessionalId={slotPreset?.professionalId}
         presetTime={slotPreset?.time}
         onClose={() => setScheduleOpen(false)}
+        onSaved={() => void reload()}
+      />
+
+      {/* Mismo menú que el panel de casos, abierto desde el calendario */}
+      <CaseDetailDialog
+        caseItem={detailCase}
+        professionals={professionals}
+        onOpenChange={(open) => { if (!open) setDetailCase(null); }}
         onSaved={() => void reload()}
       />
     </>

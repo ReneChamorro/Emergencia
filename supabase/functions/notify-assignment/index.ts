@@ -24,6 +24,26 @@ const CORS_HEADERS = {
 };
 
 const URGENCY_LABEL: Record<string, string> = { alta: "Alta", media: "Media", baja: "Baja" };
+const LOGIN_URL = "https://emergencia-puce.vercel.app/login";
+
+/** Formatea un ISO a fecha y hora en horario de Venezuela (America/Caracas). */
+function formatCita(iso: string): string {
+  const d = new Date(iso);
+  const fecha = d.toLocaleDateString("es-VE", {
+    weekday: "long",
+    day: "numeric",
+    month: "long",
+    year: "numeric",
+    timeZone: "America/Caracas",
+  });
+  const hora = d.toLocaleTimeString("es-VE", {
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+    timeZone: "America/Caracas",
+  });
+  return `${fecha} a las ${hora}`;
+}
 
 function json(body: unknown, status = 200) {
   return new Response(JSON.stringify(body), {
@@ -51,16 +71,29 @@ Deno.serve(async (req) => {
 
     const admin = createClient(SUPABASE_URL, SERVICE_ROLE_KEY);
 
-    const [{ data: userRes, error: userErr }, { data: caseRow, error: caseErr }, { data: profileRow }] =
-      await Promise.all([
-        admin.auth.admin.getUserById(professionalId),
-        admin
-          .from("cases")
-          .select("patient_name, urgency, whatsapp, city")
-          .eq("id", caseId)
-          .single(),
-        admin.from("profiles").select("full_name").eq("id", professionalId).single(),
-      ]);
+    const [
+      { data: userRes, error: userErr },
+      { data: caseRow, error: caseErr },
+      { data: profileRow },
+      { data: apptRows },
+    ] = await Promise.all([
+      admin.auth.admin.getUserById(professionalId),
+      admin
+        .from("cases")
+        .select("patient_name, urgency, whatsapp, city")
+        .eq("id", caseId)
+        .single(),
+      admin.from("profiles").select("full_name").eq("id", professionalId).single(),
+      // Proxima cita programada de este caso con este profesional (la mas cercana).
+      admin
+        .from("appointments")
+        .select("scheduled_at")
+        .eq("case_id", caseId)
+        .eq("professional_id", professionalId)
+        .eq("status", "programada")
+        .order("scheduled_at", { ascending: true })
+        .limit(1),
+    ]);
 
     if (userErr || !userRes?.user?.email) {
       return json({ ok: false, error: "No se encontro el correo del profesional" });
@@ -71,6 +104,7 @@ Deno.serve(async (req) => {
 
     const firstName = profileRow?.full_name ? profileRow.full_name.split(" ")[0] : "";
     const urgencyLabel = URGENCY_LABEL[caseRow.urgency] ?? caseRow.urgency;
+    const citaText = apptRows?.[0]?.scheduled_at ? formatCita(apptRows[0].scheduled_at) : null;
 
     const html = `
       <div style="font-family: -apple-system, Arial, sans-serif; max-width: 480px; color: #1a1a1a;">
@@ -80,10 +114,17 @@ Deno.serve(async (req) => {
         <table style="border-collapse:collapse; margin: 12px 0;">
           <tr><td style="padding:4px 12px 4px 0;color:#666;">Paciente</td><td style="padding:4px 0;font-weight:600;">${escapeHtml(caseRow.patient_name)}</td></tr>
           <tr><td style="padding:4px 12px 4px 0;color:#666;">Urgencia</td><td style="padding:4px 0;">${escapeHtml(urgencyLabel)}</td></tr>
+          ${citaText ? `<tr><td style="padding:4px 12px 4px 0;color:#666;">Cita</td><td style="padding:4px 0;font-weight:600;text-transform:capitalize;">${escapeHtml(citaText)}</td></tr>` : ""}
           <tr><td style="padding:4px 12px 4px 0;color:#666;">WhatsApp</td><td style="padding:4px 0;">${escapeHtml(caseRow.whatsapp)}</td></tr>
           ${caseRow.city ? `<tr><td style="padding:4px 12px 4px 0;color:#666;">Ciudad</td><td style="padding:4px 0;">${escapeHtml(caseRow.city)}</td></tr>` : ""}
         </table>
-        <p>Ingresa a tu panel de profesional para ver el detalle completo y agendar la cita.</p>
+        ${citaText ? "" : `<p style="color:#666;font-size:14px;">La fecha y hora de la cita se coordinarán próximamente.</p>`}
+        <p style="margin: 20px 0;">
+          <a href="${LOGIN_URL}" style="display:inline-block;background:#0f2c5c;color:#ffffff;text-decoration:none;padding:10px 20px;border-radius:8px;font-weight:600;">
+            Ingresar a mi panel
+          </a>
+        </p>
+        <p style="color:#666;font-size:13px;">O copia este enlace: <a href="${LOGIN_URL}" style="color:#0f2c5c;">${LOGIN_URL}</a></p>
       </div>
     `;
 

@@ -1,4 +1,4 @@
-import { Phone } from "lucide-react";
+import { ChevronRight, Phone } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Spinner } from "@/components/ui/spinner";
 import {
@@ -21,6 +21,7 @@ interface Props {
   loading: boolean;
   from: Date;
   to: Date;
+  onOpenCase: (caseId: string) => void;
 }
 
 interface DayGroup {
@@ -29,7 +30,7 @@ interface DayGroup {
   items: AppointmentFull[];
 }
 
-export function AgendaList({ appointments, loading, from, to }: Props) {
+export function AgendaList({ appointments, loading, from, to, onOpenCase }: Props) {
   // Agrupar cronologicamente por dia (las citas ya vienen ordenadas por scheduled_at).
   const groups: DayGroup[] = [];
   const index = new Map<string, DayGroup>();
@@ -76,56 +77,70 @@ export function AgendaList({ appointments, loading, from, to }: Props) {
               </p>
               <ul className="space-y-1.5" role="list">
                 {g.items.map((a) => (
-                  <li
-                    key={a.id}
-                    className="flex items-start gap-3 rounded-lg border border-border bg-card px-3 py-2.5 text-sm"
-                  >
-                    <span className="mt-0.5 w-10 shrink-0 text-xs font-semibold tabular-nums text-foreground">
-                      {formatTime(a.scheduled_at)}
-                    </span>
-                    <div className="min-w-0 flex-1">
-                      <div className="flex flex-wrap items-center gap-2">
-                        <span className="truncate font-medium text-foreground">
-                          {a.case?.patient_name ?? "—"}
-                        </span>
-                        {a.case && (
-                          <Badge className={URGENCY_BADGE[a.case.urgency]}>
-                            {URGENCY_LABEL[a.case.urgency]}
-                          </Badge>
-                        )}
+                  <li key={a.id}>
+                    <div
+                      role="button"
+                      tabIndex={0}
+                      onClick={() => onOpenCase(a.case_id)}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter" || e.key === " ") {
+                          e.preventDefault();
+                          onOpenCase(a.case_id);
+                        }
+                      }}
+                      className="flex cursor-pointer items-start gap-3 rounded-lg border border-border bg-card px-3 py-2.5 text-sm transition-colors hover:border-accent/40 hover:bg-secondary/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                    >
+                      <span className="mt-0.5 w-10 shrink-0 text-xs font-semibold tabular-nums text-foreground">
+                        {formatTime(a.scheduled_at)}
+                      </span>
+                      <div className="min-w-0 flex-1">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <span className="truncate font-medium text-foreground">
+                            {a.case?.patient_name ?? "—"}
+                          </span>
+                          {a.case && (
+                            <Badge className={URGENCY_BADGE[a.case.urgency]}>
+                              {URGENCY_LABEL[a.case.urgency]}
+                            </Badge>
+                          )}
+                        </div>
+                        <div className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs text-muted-foreground">
+                          <span>{a.professional?.full_name ?? "(sin profesional)"}</span>
+                          <span aria-hidden="true">·</span>
+                          <span>{MODALITY_LABEL[a.modality]}</span>
+                          <span aria-hidden="true">·</span>
+                          <span>Contacto {a.contact_number}/3</span>
+                          {a.case?.whatsapp && (
+                            <a
+                              href={waLink(a.case.whatsapp, citaAsignadaMsg(a.scheduled_at))}
+                              target="_blank"
+                              rel="noreferrer"
+                              className="inline-flex items-center gap-1 text-accent hover:underline"
+                              onClick={(e) => e.stopPropagation()}
+                              title="Abrir WhatsApp con el mensaje de la cita"
+                            >
+                              <Phone className="size-3" />
+                              {a.case.whatsapp}
+                            </a>
+                          )}
+                        </div>
                       </div>
-                      <div className="mt-0.5 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
-                        <span>{a.professional?.full_name ?? "(sin profesional)"}</span>
-                        <span>·</span>
-                        <span>{MODALITY_LABEL[a.modality]}</span>
-                        <span>·</span>
-                        <span>Contacto {a.contact_number}/3</span>
-                        {a.case?.whatsapp && (
-                          <a
-                            href={waLink(a.case.whatsapp, citaAsignadaMsg(a.scheduled_at))}
-                            target="_blank"
-                            rel="noreferrer"
-                            className="inline-flex items-center gap-1 text-accent hover:underline"
-                            title="Abrir WhatsApp con el mensaje de la cita"
-                          >
-                            <Phone className="size-3" />
-                            {a.case.whatsapp}
-                          </a>
-                        )}
+                      <div className="flex shrink-0 items-center gap-1.5">
+                        <span
+                          className={
+                            "rounded-full border px-2 py-0.5 text-xs font-medium " +
+                            (a.status === "programada"
+                              ? "border-accent/30 bg-accent/10 text-accent"
+                              : a.status === "realizada"
+                              ? "border-success/30 bg-success/10 text-success"
+                              : "border-border bg-muted text-muted-foreground")
+                          }
+                        >
+                          {APPT_STATUS_LABEL[a.status]}
+                        </span>
+                        <ChevronRight className="size-4 text-muted-foreground" aria-hidden="true" />
                       </div>
                     </div>
-                    <span
-                      className={
-                        "shrink-0 rounded-full border px-2 py-0.5 text-xs font-medium " +
-                        (a.status === "programada"
-                          ? "border-accent/30 bg-accent/10 text-accent"
-                          : a.status === "realizada"
-                          ? "border-success/30 bg-success/10 text-success"
-                          : "border-border bg-muted text-muted-foreground")
-                      }
-                    >
-                      {APPT_STATUS_LABEL[a.status]}
-                    </span>
                   </li>
                 ))}
               </ul>

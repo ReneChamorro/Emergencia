@@ -124,31 +124,31 @@ export function CalendarFilters({ professionals, value, onChange, onGoToDate }: 
           <Input
             id="cal-goto"
             type="date"
-            className="w-[170px]"
+            className="w-full sm:w-[170px]"
             onChange={(e) => e.target.value && onGoToDate(e.target.value)}
           />
         </div>
 
         <div className="flex items-end gap-2">
-          <div className="space-y-1.5">
+          <div className="flex-1 space-y-1.5 sm:flex-none">
             <Label htmlFor="cal-from" className="flex items-center gap-1 text-xs text-muted-foreground">
-              <CalendarRange className="size-3.5" /> Rango: desde
+              <CalendarRange className="size-3.5 shrink-0" /> Rango: desde
             </Label>
             <Input
               id="cal-from"
               type="date"
-              className="w-[160px]"
+              className="w-full sm:w-[160px]"
               value={value.from}
               max={value.to || undefined}
               onChange={(e) => set("from", e.target.value)}
             />
           </div>
-          <div className="space-y-1.5">
+          <div className="flex-1 space-y-1.5 sm:flex-none">
             <Label htmlFor="cal-to" className="text-xs text-muted-foreground">hasta</Label>
             <Input
               id="cal-to"
               type="date"
-              className="w-[160px]"
+              className="w-full sm:w-[160px]"
               value={value.to}
               min={value.from || undefined}
               onChange={(e) => set("to", e.target.value)}
@@ -160,7 +160,7 @@ export function CalendarFilters({ professionals, value, onChange, onGoToDate }: 
           <Button
             variant="outline"
             size="sm"
-            className="gap-1.5"
+            className="w-full gap-1.5 sm:w-auto"
             onClick={() => onChange(EMPTY_FILTERS)}
           >
             <FilterX className="size-4" /> Limpiar filtros

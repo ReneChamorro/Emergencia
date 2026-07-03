@@ -1,9 +1,6 @@
-import { useState } from "react";
-import { supabase } from "@/lib/supabase";
-import { AlertTriangle, CalendarPlus, Phone, Plus, UserMinus } from "lucide-react";
+import { CalendarPlus, ChevronRight, Phone, Plus } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Spinner } from "@/components/ui/spinner";
 import {
   APPT_STATUS_LABEL,
   MODALITY_LABEL,
@@ -31,8 +28,8 @@ interface Props {
   professionals: Profile[];
   onNewAppointment: () => void;
   onSlotClick: (professionalId: string, time: string) => void;
-  /** Llamado tras desasignar un caso para forzar recarga. */
-  onCaseChanged?: () => void;
+  /** Abre el diálogo completo del caso (mismo menú del panel de casos). */
+  onOpenCase: (caseId: string) => void;
 }
 
 interface DaySection {
@@ -49,25 +46,10 @@ export function DayDetailPanel({
   professionals,
   onNewAppointment,
   onSlotClick,
-  onCaseChanged,
+  onOpenCase,
 }: Props) {
   const key = toDateKey(day);
   const apptGroups = groupByProfessional(appointments);
-
-  // ID de la cita cuya fila está en modo "confirmar desasignación"
-  const [confirmApptId, setConfirmApptId] = useState<string | null>(null);
-  const [unassigning, setUnassigning] = useState(false);
-
-  async function handleUnassign(caseId: string) {
-    setUnassigning(true);
-    await supabase
-      .from("cases")
-      .update({ assigned_professional_id: null, status: "nuevo" })
-      .eq("id", caseId);
-    setUnassigning(false);
-    setConfirmApptId(null);
-    onCaseChanged?.();
-  }
 
   // Union de profesionales con citas y/o disponibilidad ese dia
   const sectionMap = new Map<string, DaySection>();
@@ -101,7 +83,7 @@ export function DayDetailPanel({
     <div className="flex h-full flex-col" key={key}>
       {/* Header del día */}
       <div className="mb-4 flex items-start justify-between gap-3">
-        <div>
+        <div className="min-w-0">
           <h3 className="text-base font-semibold capitalize text-foreground">
             {formatDayHeader(day)}
           </h3>
@@ -113,7 +95,8 @@ export function DayDetailPanel({
         </div>
         <Button size="sm" onClick={onNewAppointment} className="shrink-0">
           <CalendarPlus className="size-4" />
-          Nueva cita
+          <span className="hidden xs:inline">Nueva cita</span>
+          <span className="xs:hidden">Nueva</span>
         </Button>
       </div>
 
@@ -167,11 +150,7 @@ export function DayDetailPanel({
                         <AppointmentRow
                           key={appointment.id}
                           a={appointment}
-                          confirming={confirmApptId === appointment.id}
-                          unassigning={unassigning && confirmApptId === appointment.id}
-                          onRequestConfirm={() => setConfirmApptId(appointment.id)}
-                          onCancelConfirm={() => setConfirmApptId(null)}
-                          onConfirmUnassign={() => void handleUnassign(appointment.case_id)}
+                          onOpenCase={() => onOpenCase(appointment.case_id)}
                         />
                       ) : (
                         <EmptySlotRow
@@ -195,15 +174,7 @@ export function DayDetailPanel({
                     )}
                     <ul className="space-y-1.5" role="list">
                       {leftover.map((a) => (
-                        <AppointmentRow
-                          key={a.id}
-                          a={a}
-                          confirming={confirmApptId === a.id}
-                          unassigning={unassigning && confirmApptId === a.id}
-                          onRequestConfirm={() => setConfirmApptId(a.id)}
-                          onCancelConfirm={() => setConfirmApptId(null)}
-                          onConfirmUnassign={() => void handleUnassign(a.case_id)}
-                        />
+                        <AppointmentRow key={a.id} a={a} onOpenCase={() => onOpenCase(a.case_id)} />
                       ))}
                     </ul>
                   </div>
@@ -223,7 +194,7 @@ function EmptySlotRow({ slot, onClick }: { slot: HourSlot; onClick: () => void }
       <button
         type="button"
         onClick={onClick}
-        className="flex w-full items-center gap-3 rounded-lg border border-dashed border-success/40 bg-success/5 px-3 py-2 text-left text-sm transition-colors hover:bg-success/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+        className="flex min-h-11 w-full items-center gap-3 rounded-lg border border-dashed border-success/40 bg-success/5 px-3 py-2 text-left text-sm transition-colors hover:bg-success/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
       >
         <span className="w-10 shrink-0 text-xs font-semibold tabular-nums text-success">
           {slot.start}
@@ -233,120 +204,83 @@ function EmptySlotRow({ slot, onClick }: { slot: HourSlot; onClick: () => void }
         </span>
         <span className="inline-flex items-center gap-1 rounded-full bg-success/15 px-2 py-0.5 text-xs font-medium text-success">
           <Plus className="size-3" />
-          Agregar paciente
+          <span className="hidden xs:inline">Agregar paciente</span>
+          <span className="xs:hidden">Agregar</span>
         </span>
       </button>
     </li>
   );
 }
 
-interface AppointmentRowProps {
-  a: AppointmentFull;
-  confirming: boolean;
-  unassigning: boolean;
-  onRequestConfirm: () => void;
-  onCancelConfirm: () => void;
-  onConfirmUnassign: () => void;
-}
+function AppointmentRow({ a, onOpenCase }: { a: AppointmentFull; onOpenCase: () => void }) {
+  return (
+    <li>
+      <div
+        role="button"
+        tabIndex={0}
+        onClick={onOpenCase}
+        onKeyDown={(e) => {
+          if (e.key === "Enter" || e.key === " ") {
+            e.preventDefault();
+            onOpenCase();
+          }
+        }}
+        className="flex cursor-pointer items-start gap-3 rounded-lg border border-border bg-card px-3 py-2.5 text-sm transition-colors hover:border-accent/40 hover:bg-secondary/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+      >
+        {/* Hora */}
+        <span className="mt-0.5 w-10 shrink-0 text-xs font-semibold tabular-nums text-foreground">
+          {formatTime(a.scheduled_at)}
+        </span>
 
-function AppointmentRow({
-  a,
-  confirming,
-  unassigning,
-  onRequestConfirm,
-  onCancelConfirm,
-  onConfirmUnassign,
-}: AppointmentRowProps) {
-  if (confirming) {
-    return (
-      <li className="rounded-lg border border-warning/30 bg-warning/5 px-3 py-2.5 text-sm">
-        <div className="flex items-start gap-2">
-          <AlertTriangle className="mt-0.5 size-4 shrink-0 text-warning" />
-          <div className="flex-1 min-w-0">
-            <p className="font-medium text-foreground">
-              ¿Desasignar a {a.case?.patient_name ?? "este paciente"}?
-            </p>
-            <p className="mt-0.5 text-xs text-muted-foreground">
-              El caso <strong>no se borrará</strong>. Se quitará la asignación al profesional
-              y volverá a estado "Nuevo".
-            </p>
+        {/* Info del paciente */}
+        <div className="min-w-0 flex-1">
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="font-medium text-foreground truncate">
+              {a.case?.patient_name ?? "—"}
+            </span>
+            {a.case && (
+              <Badge className={URGENCY_BADGE[a.case.urgency]}>
+                {URGENCY_LABEL[a.case.urgency]}
+              </Badge>
+            )}
+          </div>
+          <div className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs text-muted-foreground">
+            {a.case?.whatsapp && (
+              <a
+                href={waLink(a.case.whatsapp, citaAsignadaMsg(a.scheduled_at))}
+                target="_blank"
+                rel="noreferrer"
+                className="inline-flex items-center gap-1 text-accent hover:underline"
+                onClick={(e) => e.stopPropagation()}
+                title="Abrir WhatsApp con el mensaje de la cita"
+              >
+                <Phone className="size-3" />
+                {a.case.whatsapp}
+              </a>
+            )}
+            <span aria-hidden="true">·</span>
+            <span>{MODALITY_LABEL[a.modality]}</span>
+            <span aria-hidden="true">·</span>
+            <span>Contacto {a.contact_number}/3</span>
           </div>
         </div>
-        <div className="mt-2.5 flex justify-end gap-2">
-          <Button variant="outline" size="sm" onClick={onCancelConfirm} disabled={unassigning}>
-            Cancelar
-          </Button>
-          <Button size="sm" onClick={onConfirmUnassign} disabled={unassigning}>
-            {unassigning && <Spinner className="text-primary-foreground" />}
-            Confirmar
-          </Button>
-        </div>
-      </li>
-    );
-  }
 
-  return (
-    <li className="flex items-start gap-3 rounded-lg border border-border bg-card px-3 py-2.5 text-sm">
-      {/* Hora */}
-      <span className="mt-0.5 w-10 shrink-0 text-xs font-semibold tabular-nums text-foreground">
-        {formatTime(a.scheduled_at)}
-      </span>
-
-      {/* Info del paciente */}
-      <div className="min-w-0 flex-1">
-        <div className="flex flex-wrap items-center gap-2">
-          <span className="font-medium text-foreground truncate">
-            {a.case?.patient_name ?? "—"}
+        {/* Estado + chevron (abrir menú del caso) */}
+        <div className="flex shrink-0 items-center gap-1.5">
+          <span
+            className={
+              "rounded-full border px-2 py-0.5 text-xs font-medium " +
+              (a.status === "programada"
+                ? "border-accent/30 bg-accent/10 text-accent"
+                : a.status === "realizada"
+                ? "border-success/30 bg-success/10 text-success"
+                : "border-border bg-muted text-muted-foreground")
+            }
+          >
+            {APPT_STATUS_LABEL[a.status]}
           </span>
-          {a.case && (
-            <Badge className={URGENCY_BADGE[a.case.urgency]}>
-              {URGENCY_LABEL[a.case.urgency]}
-            </Badge>
-          )}
+          <ChevronRight className="size-4 text-muted-foreground" aria-hidden="true" />
         </div>
-        <div className="mt-0.5 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
-          {a.case?.whatsapp && (
-            <a
-              href={waLink(a.case.whatsapp, citaAsignadaMsg(a.scheduled_at))}
-              target="_blank"
-              rel="noreferrer"
-              className="inline-flex items-center gap-1 text-accent hover:underline"
-              onClick={(e) => e.stopPropagation()}
-              title="Abrir WhatsApp con el mensaje de la cita"
-            >
-              <Phone className="size-3" />
-              {a.case.whatsapp}
-            </a>
-          )}
-          <span>·</span>
-          <span>{MODALITY_LABEL[a.modality]}</span>
-          <span>·</span>
-          <span>Contacto {a.contact_number}/3</span>
-        </div>
-      </div>
-
-      {/* Estado + desasignar */}
-      <div className="flex shrink-0 items-center gap-2">
-        <span
-          className={
-            "rounded-full border px-2 py-0.5 text-xs font-medium " +
-            (a.status === "programada"
-              ? "border-accent/30 bg-accent/10 text-accent"
-              : a.status === "realizada"
-              ? "border-success/30 bg-success/10 text-success"
-              : "border-border bg-muted text-muted-foreground")
-          }
-        >
-          {APPT_STATUS_LABEL[a.status]}
-        </span>
-        <button
-          type="button"
-          title="Desasignar caso"
-          onClick={onRequestConfirm}
-          className="rounded p-1 text-muted-foreground hover:text-warning focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
-        >
-          <UserMinus className="size-3.5" />
-        </button>
       </div>
     </li>
   );

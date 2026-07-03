@@ -239,6 +239,8 @@ export function CaseDetailDialog({ caseItem, professionals, onOpenChange, onSave
     setAssigned("");
     setStatus("nuevo");
     setFeedback("Caso desasignado y devuelto a 'Nuevo'.");
+    // Refresca la lista para reflejar las citas que el trigger de BD acaba de cancelar.
+    await loadAppointments(caseItem.id);
     onSaved();
   }
 

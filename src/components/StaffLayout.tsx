@@ -28,13 +28,16 @@ export function StaffLayout({ title, subtitle, actions, children }: Props) {
   return (
     <div className="min-h-dvh bg-background">
       <header className="sticky top-0 z-30 border-b border-border bg-primary text-primary-foreground">
-        <div className="container flex h-16 items-center justify-between gap-4">
+        <div className="container flex h-16 items-center justify-between gap-2 sm:gap-4">
           {/* Logo + rol */}
-          <div className="flex items-center gap-2.5 shrink-0">
-            <HeartPulse className="size-6 text-accent" aria-hidden="true" />
-            <div className="leading-tight">
-              <p className="text-sm font-semibold">Apoyo Psicologico de Emergencia</p>
-              <p className="text-xs text-primary-foreground/70">
+          <div className="flex min-w-0 items-center gap-2.5">
+            <HeartPulse className="size-6 shrink-0 text-accent" aria-hidden="true" />
+            <div className="min-w-0 leading-tight">
+              <p className="truncate text-sm font-semibold">
+                <span className="hidden sm:inline">Apoyo Psicologico de Emergencia</span>
+                <span className="sm:hidden">Apoyo Psicologico</span>
+              </p>
+              <p className="truncate text-xs text-primary-foreground/70">
                 {roleLabel}
                 {profile?.full_name ? ` · ${profile.full_name}` : ""}
               </p>
@@ -43,7 +46,7 @@ export function StaffLayout({ title, subtitle, actions, children }: Props) {
 
           {/* Navegación entre paneles (solo coordinador y admin) */}
           {hasBothPanels && (
-            <nav className="flex items-center gap-1" aria-label="Paneles">
+            <nav className="flex shrink-0 items-center gap-1" aria-label="Paneles">
               <NavLink
                 to="/coordinador"
                 className={({ isActive }) =>
