@@ -1,12 +1,30 @@
 import { supabase } from "@/lib/supabase";
 
+export interface NotifyResult {
+  ok: boolean;
+  error?: string;
+}
+
 /**
- * Notifica por correo al profesional cuando se le asigna un caso nuevo.
- * Llamada "fire and forget": nunca bloquea ni interrumpe el flujo de asignacion
- * si el envio falla (falta de config de Resend, correo no encontrado, etc.).
+ * Envia el correo de "caso asignado" al profesional. Se invoca de forma manual
+ * (el coordinador decide cuando enviarlo, no ocurre automaticamente al asignar).
+ * Nunca lanza: cualquier fallo (Resend, red, funcion no desplegada) se devuelve
+ * como { ok: false, error } para que el caller lo muestre sin romper el flujo.
  */
-export function notifyProfessionalAssigned(caseId: string, professionalId: string): void {
-  supabase.functions.invoke("notify-assignment", { body: { caseId, professionalId } }).catch((e) => {
-    console.warn("No se pudo enviar la notificacion de asignacion:", e);
-  });
+export async function notifyProfessionalAssigned(
+  caseId: string,
+  professionalId: string
+): Promise<NotifyResult> {
+  try {
+    const { data, error } = await supabase.functions.invoke("notify-assignment", {
+      body: { caseId, professionalId },
+    });
+    if (error) return { ok: false, error: error.message };
+    if (data && (data as NotifyResult).ok === false) {
+      return { ok: false, error: (data as NotifyResult).error ?? "No se pudo enviar el correo." };
+    }
+    return { ok: true };
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : String(e) };
+  }
 }

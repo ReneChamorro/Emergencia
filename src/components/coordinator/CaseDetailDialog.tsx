@@ -53,7 +53,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Spinner } from "@/components/ui/spinner";
-import { AlertTriangle, CalendarPlus, Info as InfoIcon, MessageCircle, Trash2, UserMinus } from "lucide-react";
+import { AlertTriangle, CalendarPlus, Info as InfoIcon, Mail, MessageCircle, Trash2, UserMinus } from "lucide-react";
 
 interface Props {
   caseItem: Case | null;
@@ -74,6 +74,8 @@ export function CaseDetailDialog({ caseItem, professionals, onOpenChange, onSave
   const [acting, setActing] = useState(false);
   const [feedback, setFeedback] = useState<string | null>(null);
   const [confirm, setConfirm] = useState<Confirm>(null);
+  const [sendingEmail, setSendingEmail] = useState(false);
+  const [emailFeedback, setEmailFeedback] = useState<string | null>(null);
 
   const [appointments, setAppointments] = useState<Appointment[]>([]);
   const [apptDate, setApptDate] = useState(() => toDateInputValue(new Date()));
@@ -96,6 +98,7 @@ export function CaseDetailDialog({ caseItem, professionals, onOpenChange, onSave
     setConfirm(null);
     setSchedulingErr(null);
     setSelectedStart(null);
+    setEmailFeedback(null);
     setApptDate(toDateInputValue(new Date()));
     void loadAppointments(caseItem.id);
   }, [caseItem]);
@@ -192,10 +195,16 @@ export function CaseDetailDialog({ caseItem, professionals, onOpenChange, onSave
     }
     setStatus(nextStatus);
     setFeedback("Cambios guardados.");
-    if (assigned && assigned !== caseItem.assigned_professional_id) {
-      notifyProfessionalAssigned(caseItem.id, assigned);
-    }
     onSaved();
+  }
+
+  async function handleSendEmail() {
+    if (!caseItem || !assigned) return;
+    setSendingEmail(true);
+    setEmailFeedback(null);
+    const result = await notifyProfessionalAssigned(caseItem.id, assigned);
+    setSendingEmail(false);
+    setEmailFeedback(result.ok ? "Correo enviado." : `No se pudo enviar: ${result.error ?? "error desconocido"}`);
   }
 
   async function handleDelete() {
@@ -256,6 +265,9 @@ export function CaseDetailDialog({ caseItem, professionals, onOpenChange, onSave
   }
 
   const isAssigned = !!caseItem.assigned_professional_id;
+  // El correo solo se envia manualmente y solo si la asignacion ya esta guardada
+  // (evita notificar sobre un cambio de profesional que aun no se ha confirmado).
+  const canSendEmail = !!assigned && assigned === caseItem.assigned_professional_id;
 
   return (
     <Dialog open={!!caseItem} onOpenChange={onOpenChange}>
@@ -320,6 +332,25 @@ export function CaseDetailDialog({ caseItem, professionals, onOpenChange, onSave
               <p className="text-xs text-muted-foreground">
                 Bloqueado al profesional actual: el caso ya tiene una segunda cita.
               </p>
+            )}
+            {isAssigned && (
+              <div className="pt-1">
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={handleSendEmail}
+                  disabled={!canSendEmail || sendingEmail}
+                  className="gap-1.5"
+                  title={!canSendEmail ? "Guarda la asignación antes de enviar el correo." : undefined}
+                >
+                  {sendingEmail ? <Spinner className="size-3.5" /> : <Mail className="size-3.5" />}
+                  Enviar correo al profesional
+                </Button>
+                {emailFeedback && (
+                  <p className="mt-1 text-xs text-muted-foreground">{emailFeedback}</p>
+                )}
+              </div>
             )}
           </Field>
         </div>

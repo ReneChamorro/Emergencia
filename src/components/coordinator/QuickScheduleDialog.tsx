@@ -4,7 +4,6 @@ import { useAuth } from "@/context/AuthContext";
 import type { ApptModality, AvailabilityBlock, Case, Profile } from "@/types/database";
 import { MODALITY_LABEL } from "@/lib/domain";
 import { formatBlockTime } from "@/lib/calendarUtils";
-import { notifyProfessionalAssigned } from "@/lib/notifications";
 import {
   Dialog,
   DialogContent,
@@ -149,10 +148,6 @@ export function QuickScheduleDialog({
       // La cita SI se creo, pero el caso no quedo asignado: avisar con el motivo real.
       setError(`La cita se creo, pero no se pudo asignar el caso: ${caseErr.message}`);
       return;
-    }
-
-    if (professionalId !== selectedCase?.assigned_professional_id) {
-      notifyProfessionalAssigned(caseId, professionalId);
     }
 
     onSaved();
