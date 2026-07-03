@@ -21,6 +21,7 @@ import {
   formatDateTime,
   waLink,
 } from "@/lib/domain";
+import { notifyProfessionalAssigned } from "@/lib/notifications";
 import {
   buildHourSlots,
   endOfDay,
@@ -191,6 +192,9 @@ export function CaseDetailDialog({ caseItem, professionals, onOpenChange, onSave
     }
     setStatus(nextStatus);
     setFeedback("Cambios guardados.");
+    if (assigned && assigned !== caseItem.assigned_professional_id) {
+      notifyProfessionalAssigned(caseItem.id, assigned);
+    }
     onSaved();
   }
 
