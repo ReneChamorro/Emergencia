@@ -76,6 +76,8 @@ export function CaseDetailDialog({ caseItem, professionals, onOpenChange, onSave
   const [confirm, setConfirm] = useState<Confirm>(null);
   const [sendingEmail, setSendingEmail] = useState(false);
   const [emailFeedback, setEmailFeedback] = useState<string | null>(null);
+  const [deleteApptId, setDeleteApptId] = useState<string | null>(null);
+  const [deletingAppt, setDeletingAppt] = useState(false);
 
   const [appointments, setAppointments] = useState<Appointment[]>([]);
   const [apptDate, setApptDate] = useState(() => toDateInputValue(new Date()));
@@ -99,6 +101,7 @@ export function CaseDetailDialog({ caseItem, professionals, onOpenChange, onSave
     setSchedulingErr(null);
     setSelectedStart(null);
     setEmailFeedback(null);
+    setDeleteApptId(null);
     setApptDate(toDateInputValue(new Date()));
     void loadAppointments(caseItem.id);
   }, [caseItem]);
@@ -264,6 +267,24 @@ export function CaseDetailDialog({ caseItem, professionals, onOpenChange, onSave
     setOccupied((prev) => [...prev, selectedStart]);
     setSelectedStart(null);
     await loadAppointments(caseItem.id);
+  }
+
+  async function handleDeleteAppointment(id: string) {
+    if (!caseItem) return;
+    setDeletingAppt(true);
+    const { data, error } = await supabase
+      .from("appointments")
+      .delete()
+      .eq("id", id)
+      .select("id");
+    setDeletingAppt(false);
+    setDeleteApptId(null);
+    if (error || !data || data.length === 0) {
+      setSchedulingErr("No se pudo borrar la cita (permisos).");
+      return;
+    }
+    await loadAppointments(caseItem.id);
+    onSaved();
   }
 
   const isAssigned = !!caseItem.assigned_professional_id;
@@ -459,21 +480,52 @@ export function CaseDetailDialog({ caseItem, professionals, onOpenChange, onSave
           ) : (
             <ul className="space-y-1.5">
               {appointments.map((a) => (
-                <li key={a.id} className="flex flex-wrap items-center justify-between gap-2 rounded-md border border-border px-3 py-2 text-sm">
-                  <span>{formatDateTime(a.scheduled_at)} · {MODALITY_LABEL[a.modality]} (contacto {a.contact_number}/3)</span>
-                  <div className="flex items-center gap-2">
-                    <a
-                      href={waLink(caseItem.whatsapp, citaAsignadaMsg(a.scheduled_at))}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="inline-flex items-center gap-1 rounded-md border border-success/40 px-2 py-1 text-xs font-medium text-success transition-colors hover:bg-success/10"
-                    >
-                      <MessageCircle className="size-3.5" /> Enviar por WhatsApp
-                    </a>
-                    <Badge className="border-border bg-secondary text-secondary-foreground">
-                      {APPT_STATUS_LABEL[a.status]}
-                    </Badge>
+                <li key={a.id} className="rounded-md border border-border px-3 py-2 text-sm">
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <span>{formatDateTime(a.scheduled_at)} · {MODALITY_LABEL[a.modality]} (contacto {a.contact_number}/3)</span>
+                    <div className="flex items-center gap-2">
+                      <a
+                        href={waLink(caseItem.whatsapp, citaAsignadaMsg(a.scheduled_at))}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="inline-flex items-center gap-1 rounded-md border border-success/40 px-2 py-1 text-xs font-medium text-success transition-colors hover:bg-success/10"
+                      >
+                        <MessageCircle className="size-3.5" /> <span className="hidden xs:inline">Enviar por WhatsApp</span><span className="xs:hidden">WhatsApp</span>
+                      </a>
+                      <Badge className="border-border bg-secondary text-secondary-foreground">
+                        {APPT_STATUS_LABEL[a.status]}
+                      </Badge>
+                      <button
+                        type="button"
+                        title="Borrar cita"
+                        onClick={() => setDeleteApptId(deleteApptId === a.id ? null : a.id)}
+                        className="rounded p-1 text-muted-foreground transition-colors hover:text-destructive focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                      >
+                        <Trash2 className="size-4" />
+                      </button>
+                    </div>
                   </div>
+                  {deleteApptId === a.id && (
+                    <div className="mt-2 flex flex-wrap items-center justify-between gap-2 rounded-md border border-destructive/30 bg-destructive/5 p-2">
+                      <span className="text-xs text-destructive">
+                        ¿Borrar esta cita permanentemente? Desaparecerá del calendario.
+                      </span>
+                      <div className="flex gap-2">
+                        <Button variant="outline" size="sm" onClick={() => setDeleteApptId(null)} disabled={deletingAppt}>
+                          Cancelar
+                        </Button>
+                        <Button
+                          size="sm"
+                          onClick={() => handleDeleteAppointment(a.id)}
+                          disabled={deletingAppt}
+                          className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                        >
+                          {deletingAppt && <Spinner className="text-destructive-foreground" />}
+                          Borrar
+                        </Button>
+                      </div>
+                    </div>
+                  )}
                 </li>
               ))}
             </ul>

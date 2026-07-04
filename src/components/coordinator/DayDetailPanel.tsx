@@ -1,4 +1,4 @@
-import { CalendarPlus, ChevronRight, Phone, Plus } from "lucide-react";
+import { CalendarPlus, ChevronRight, MousePointerClick, Phone, Plus } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -19,6 +19,7 @@ import {
   type AppointmentFull,
   type HourSlot,
 } from "@/lib/calendarUtils";
+import { cn } from "@/lib/utils";
 import type { AvailabilityBlock, Profile } from "@/types/database";
 
 interface Props {
@@ -30,6 +31,8 @@ interface Props {
   onSlotClick: (professionalId: string, time: string) => void;
   /** Abre el diálogo completo del caso (mismo menú del panel de casos). */
   onOpenCase: (caseId: string) => void;
+  /** Nombre del caso seleccionado en "Casos abiertos" (si hay uno armado para asignar). */
+  pendingCaseName?: string | null;
 }
 
 interface DaySection {
@@ -47,6 +50,7 @@ export function DayDetailPanel({
   onNewAppointment,
   onSlotClick,
   onOpenCase,
+  pendingCaseName,
 }: Props) {
   const key = toDateKey(day);
   const apptGroups = groupByProfessional(appointments);
@@ -156,6 +160,7 @@ export function DayDetailPanel({
                         <EmptySlotRow
                           key={slot.start}
                           slot={slot}
+                          pending={!!pendingCaseName}
                           onClick={() => onSlotClick(section.professionalId, slot.start)}
                         />
                       )
@@ -188,24 +193,51 @@ export function DayDetailPanel({
   );
 }
 
-function EmptySlotRow({ slot, onClick }: { slot: HourSlot; onClick: () => void }) {
+function EmptySlotRow({
+  slot,
+  pending,
+  onClick,
+}: {
+  slot: HourSlot;
+  pending: boolean;
+  onClick: () => void;
+}) {
   return (
     <li>
       <button
         type="button"
         onClick={onClick}
-        className="flex min-h-11 w-full items-center gap-3 rounded-lg border border-dashed border-success/40 bg-success/5 px-3 py-2 text-left text-sm transition-colors hover:bg-success/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+        className={cn(
+          "flex min-h-11 w-full items-center gap-3 rounded-lg border border-dashed px-3 py-2 text-left text-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+          pending
+            ? "border-accent/60 bg-accent/10 hover:bg-accent/15"
+            : "border-success/40 bg-success/5 hover:bg-success/10"
+        )}
       >
-        <span className="w-10 shrink-0 text-xs font-semibold tabular-nums text-success">
+        <span
+          className={cn(
+            "w-10 shrink-0 text-xs font-semibold tabular-nums",
+            pending ? "text-accent" : "text-success"
+          )}
+        >
           {slot.start}
         </span>
-        <span className="flex-1 text-xs font-medium text-success">
+        <span className={cn("flex-1 text-xs font-medium", pending ? "text-accent" : "text-success")}>
           Disponible hasta las {slot.end}
         </span>
-        <span className="inline-flex items-center gap-1 rounded-full bg-success/15 px-2 py-0.5 text-xs font-medium text-success">
-          <Plus className="size-3" />
-          <span className="hidden xs:inline">Agregar paciente</span>
-          <span className="xs:hidden">Agregar</span>
+        <span
+          className={cn(
+            "inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium",
+            pending ? "bg-accent/20 text-accent" : "bg-success/15 text-success"
+          )}
+        >
+          {pending ? <MousePointerClick className="size-3" /> : <Plus className="size-3" />}
+          {pending ? "Asignar aquí" : (
+            <>
+              <span className="hidden xs:inline">Agregar paciente</span>
+              <span className="xs:hidden">Agregar</span>
+            </>
+          )}
         </span>
       </button>
     </li>

@@ -1,8 +1,10 @@
 import { useMemo, useState } from "react";
 import { supabase } from "@/lib/supabase";
+import { useAuth } from "@/context/AuthContext";
 import { useProfessionals } from "@/hooks/useProfessionals";
 import { useCalendarAppointments, useRangeAppointments } from "@/hooks/useCalendarAppointments";
 import { useAllAvailabilityBlocks } from "@/hooks/useAvailabilityBlocks";
+import { useOpenCases } from "@/hooks/useOpenCases";
 import type { Case } from "@/types/database";
 import {
   toDateKey,
@@ -17,6 +19,7 @@ import { DayDetailPanel } from "./DayDetailPanel";
 import { QuickScheduleDialog } from "./QuickScheduleDialog";
 import { AgendaList } from "./AgendaList";
 import { CaseDetailDialog } from "./CaseDetailDialog";
+import { OpenCasesPanel } from "./OpenCasesPanel";
 import {
   CalendarFilters,
   EMPTY_FILTERS,
@@ -35,21 +38,70 @@ function matchesFilters(a: AppointmentFull, f: CalendarFilterState): boolean {
 }
 
 export function CalendarioTab() {
+  const { profile } = useAuth();
   const [month, setMonth] = useState(() => new Date());
   const [selectedDay, setSelectedDay] = useState(() => new Date());
   const [scheduleOpen, setScheduleOpen] = useState(false);
   const [slotPreset, setSlotPreset] = useState<{ professionalId: string; time: string } | null>(null);
   const [filters, setFilters] = useState<CalendarFilterState>(EMPTY_FILTERS);
   const [detailCase, setDetailCase] = useState<Case | null>(null);
+  const [selectedCaseId, setSelectedCaseId] = useState<string | null>(null);
+  const [assignError, setAssignError] = useState<string | null>(null);
+  const [assigning, setAssigning] = useState(false);
 
   const { professionals } = useProfessionals();
   const { appointments, loading, reload } = useCalendarAppointments(month);
   const { blocks: availabilityBlocks } = useAllAvailabilityBlocks();
+  const { cases: openCasesList, loading: openCasesLoading, reload: reloadOpenCases } = useOpenCases();
+
+  const selectedOpenCase = openCasesList.find((c) => c.id === selectedCaseId) ?? null;
 
   // Abre el mismo diálogo del panel de casos al clickear una cita en el calendario.
   async function openCase(caseId: string) {
     const { data } = await supabase.from("cases").select("*").eq("id", caseId).single();
     if (data) setDetailCase(data as Case);
+  }
+
+  // Coloca directamente el caso seleccionado en "Casos abiertos" en el horario clickeado.
+  async function assignSelectedCaseToSlot(professionalId: string, time: string) {
+    if (!selectedCaseId || assigning) return;
+    setAssigning(true);
+    setAssignError(null);
+
+    const [hours, minutes] = time.split(":").map(Number);
+    const dt = new Date(selectedDay);
+    dt.setHours(hours, minutes, 0, 0);
+
+    const { error: apptErr } = await supabase.from("appointments").insert({
+      case_id: selectedCaseId,
+      professional_id: professionalId,
+      scheduled_at: dt.toISOString(),
+      modality: "videollamada",
+      contact_number: 1,
+      created_by: profile?.id ?? null,
+    });
+
+    if (apptErr) {
+      setAssigning(false);
+      setAssignError("No se pudo agendar la cita. Intenta de nuevo.");
+      return;
+    }
+
+    const { error: caseErr } = await supabase
+      .from("cases")
+      .update({ assigned_professional_id: professionalId, status: "asignado" })
+      .eq("id", selectedCaseId);
+
+    setAssigning(false);
+
+    if (caseErr) {
+      setAssignError(`La cita se creó, pero no se pudo asignar el caso: ${caseErr.message}`);
+      return;
+    }
+
+    setSelectedCaseId(null);
+    void reload();
+    void reloadOpenCases();
   }
 
   const rangeActive = isRangeActive(filters);
@@ -128,6 +180,17 @@ export function CalendarioTab() {
 
   return (
     <>
+      <OpenCasesPanel
+        cases={openCasesList}
+        loading={openCasesLoading}
+        selectedCaseId={selectedCaseId}
+        onSelect={(id) => {
+          setSelectedCaseId(id);
+          setAssignError(null);
+        }}
+        error={assignError}
+      />
+
       <CalendarFilters
         professionals={professionals}
         value={filters}
@@ -180,10 +243,15 @@ export function CalendarioTab() {
                 setScheduleOpen(true);
               }}
               onSlotClick={(professionalId, time) => {
-                setSlotPreset({ professionalId, time });
-                setScheduleOpen(true);
+                if (selectedCaseId) {
+                  void assignSelectedCaseToSlot(professionalId, time);
+                } else {
+                  setSlotPreset({ professionalId, time });
+                  setScheduleOpen(true);
+                }
               }}
               onOpenCase={openCase}
+              pendingCaseName={selectedOpenCase?.patient_name}
             />
           )}
         </div>
