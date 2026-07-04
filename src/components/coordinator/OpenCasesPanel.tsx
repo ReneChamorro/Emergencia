@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { ChevronDown, ChevronUp, Inbox, X } from "lucide-react";
+import { CalendarDays, Clock, ChevronDown, ChevronUp, Inbox, X } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Spinner } from "@/components/ui/spinner";
 import { URGENCY_BADGE, URGENCY_LABEL } from "@/lib/domain";
@@ -80,8 +80,13 @@ export function OpenCasesPanel({ cases, loading, selectedCaseId, onSelect, error
                     type="button"
                     onClick={() => onSelect(selected ? null : c.id)}
                     aria-pressed={selected}
+                    title={
+                      [c.available_days, c.available_times, c.availability]
+                        .filter(Boolean)
+                        .join(" · ") || undefined
+                    }
                     className={cn(
-                      "flex min-h-[52px] w-[160px] shrink-0 flex-col items-start justify-center gap-1 rounded-lg border-2 px-3 py-2 text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+                      "flex min-h-[52px] w-[210px] shrink-0 flex-col items-start justify-center gap-1 rounded-lg border-2 px-3 py-2 text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
                       selected
                         ? "border-accent bg-accent/10"
                         : "border-border bg-background hover:bg-secondary/60"
@@ -91,6 +96,18 @@ export function OpenCasesPanel({ cases, loading, selectedCaseId, onSelect, error
                       {c.patient_name}
                     </span>
                     <Badge className={URGENCY_BADGE[c.urgency]}>{URGENCY_LABEL[c.urgency]}</Badge>
+                    {c.available_days && (
+                      <span className="flex w-full items-center gap-1 truncate text-xs text-muted-foreground">
+                        <CalendarDays className="size-3 shrink-0" aria-hidden="true" />
+                        {c.available_days}
+                      </span>
+                    )}
+                    {c.available_times && (
+                      <span className="flex w-full items-center gap-1 truncate text-xs text-muted-foreground">
+                        <Clock className="size-3 shrink-0" aria-hidden="true" />
+                        {c.available_times}
+                      </span>
+                    )}
                   </button>
                 );
               })}
