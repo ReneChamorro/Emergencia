@@ -9,6 +9,7 @@ import {
   formatDayHeader,
   formatTime,
   getBlocksForDate,
+  groupByDate,
   parseDateInput,
   startOfDay,
   timeInRange,
@@ -69,9 +70,16 @@ export function ScheduleFollowUpDialog({
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Mismo calendario del coordinador, pero RLS ya limita esta consulta a las
-  // propias citas del profesional (professionalId siempre es auth.uid() aqui).
-  const { byDate, loading: loadingMonth } = useCalendarAppointments(month);
+  // useCalendarAppointments es el hook "de coordinador": si quien mira esta
+  // pantalla es coordinador/admin, RLS le deja ver las citas de TODOS los
+  // profesionales. Hay que filtrar explicitamente a este profesional para
+  // que los puntos del mes no muestren citas ajenas (mismo patron que
+  // useMyAvailability y Profesional.tsx).
+  const { appointments: monthAppointments, loading: loadingMonth } = useCalendarAppointments(month);
+  const byDate = useMemo(
+    () => groupByDate(monthAppointments.filter((a) => a.professional_id === professionalId)),
+    [monthAppointments, professionalId]
+  );
 
   const usedNumbers = existingAppointments.map((a) => a.contact_number);
   const maxUsed = usedNumbers.length ? Math.max(...usedNumbers) : 0;
