@@ -1,13 +1,13 @@
-import { ChevronRight, Phone } from "lucide-react";
+import { ChevronRight } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Spinner } from "@/components/ui/spinner";
+import { WhatsAppLink } from "@/components/ui/whatsapp-link";
 import {
   APPT_STATUS_LABEL,
   MODALITY_LABEL,
   URGENCY_BADGE,
   URGENCY_LABEL,
   citaAsignadaMsg,
-  waLink,
 } from "@/lib/domain";
 import {
   formatDayHeader,
@@ -111,17 +111,12 @@ export function AgendaList({ appointments, loading, from, to, onOpenCase }: Prop
                           <span aria-hidden="true">·</span>
                           <span>Contacto {a.contact_number}/3</span>
                           {a.case?.whatsapp && (
-                            <a
-                              href={waLink(a.case.whatsapp, citaAsignadaMsg(a.scheduled_at))}
-                              target="_blank"
-                              rel="noreferrer"
-                              className="inline-flex items-center gap-1 text-accent hover:underline"
+                            <WhatsAppLink
+                              phone={a.case.whatsapp}
+                              message={citaAsignadaMsg(a.scheduled_at)}
+                              iconClassName="size-3"
                               onClick={(e) => e.stopPropagation()}
-                              title="Abrir WhatsApp con el mensaje de la cita"
-                            >
-                              <Phone className="size-3" />
-                              {a.case.whatsapp}
-                            </a>
+                            />
                           )}
                         </div>
                       </div>

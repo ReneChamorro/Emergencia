@@ -129,15 +129,24 @@ export function toDateKey(d: Date): string {
 
 export type TimeOfDay = "manana" | "tarde" | "noche";
 
+function hourToFranja(h: number): TimeOfDay {
+  if (h < 12) return "manana";
+  if (h < 19) return "tarde";
+  return "noche";
+}
+
 /**
  * Franja horaria de una cita segun la hora local:
  * mañana 00:00–11:59, tarde 12:00–18:59, noche 19:00–23:59.
  */
 export function timeOfDay(iso: string): TimeOfDay {
-  const h = new Date(iso).getHours();
-  if (h < 12) return "manana";
-  if (h < 19) return "tarde";
-  return "noche";
+  return hourToFranja(new Date(iso).getHours());
+}
+
+/** Igual que timeOfDay pero a partir de un string "HH:MM" (para franjas/slots sueltos, sin fecha). */
+export function franjaOfTime(hhmm: string): TimeOfDay {
+  const h = Number(hhmm.slice(0, 2));
+  return hourToFranja(h);
 }
 
 export const TIME_OF_DAY_LABEL: Record<TimeOfDay, string> = {

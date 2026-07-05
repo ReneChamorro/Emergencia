@@ -1,23 +1,25 @@
-import { CalendarPlus, ChevronRight, MousePointerClick, Phone, Plus } from "lucide-react";
+import { CalendarPlus, ChevronRight, MousePointerClick, Plus } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { WhatsAppLink } from "@/components/ui/whatsapp-link";
 import {
   APPT_STATUS_LABEL,
   MODALITY_LABEL,
   URGENCY_BADGE,
   URGENCY_LABEL,
   citaAsignadaMsg,
-  waLink,
 } from "@/lib/domain";
 import {
   formatDayHeader,
   formatTime,
+  franjaOfTime,
   groupByProfessional,
   toDateKey,
   buildHourSlots,
   timeInRange,
   type AppointmentFull,
   type HourSlot,
+  type TimeOfDay,
 } from "@/lib/calendarUtils";
 import { cn } from "@/lib/utils";
 import type { AvailabilityBlock, Profile } from "@/types/database";
@@ -33,6 +35,10 @@ interface Props {
   onOpenCase: (caseId: string) => void;
   /** Nombre del caso seleccionado en "Casos abiertos" (si hay uno armado para asignar). */
   pendingCaseName?: string | null;
+  /** Franja horaria activa en los filtros (controla qué horarios/citas se muestran). */
+  franja?: TimeOfDay | "todas";
+  /** Filtro de fila (franja + estado + urgencia) para citas ya agendadas. */
+  rowFilter?: (a: AppointmentFull) => boolean;
 }
 
 interface DaySection {
@@ -51,8 +57,11 @@ export function DayDetailPanel({
   onSlotClick,
   onOpenCase,
   pendingCaseName,
+  franja = "todas",
+  rowFilter = () => true,
 }: Props) {
   const key = toDateKey(day);
+  const visibleAppointments = appointments.filter(rowFilter);
   const apptGroups = groupByProfessional(appointments);
 
   // Union de profesionales con citas y/o disponibilidad ese dia
@@ -83,6 +92,92 @@ export function DayDetailPanel({
     a.professionalName.localeCompare(b.professionalName)
   );
 
+  const sectionElements = sections
+    .map((section) => {
+      const slots = buildHourSlots(section.blocks);
+      const matchedIds = new Set<string>();
+      const slotRows = slots.map((slot) => {
+        const appt = section.appointments.find((a) =>
+          timeInRange(formatTime(a.scheduled_at), slot.start, slot.end)
+        );
+        if (appt) matchedIds.add(appt.id);
+        return { slot, appointment: appt };
+      });
+      const leftover = section.appointments.filter((a) => !matchedIds.has(a.id));
+
+      // Filas realmente visibles con los filtros activos. Una cita ocupada
+      // que no pasa el filtro se oculta por completo (nunca cae a "libre").
+      const visibleSlotRows = slotRows.filter(({ slot, appointment }) =>
+        appointment
+          ? rowFilter(appointment)
+          : franja === "todas" || franjaOfTime(slot.start) === franja
+      );
+      const visibleLeftover = leftover.filter(rowFilter);
+      const visibleCount = section.appointments.filter(rowFilter).length;
+      const noScheduleAtAll = slots.length === 0 && section.appointments.length === 0;
+
+      // Nada que mostrar en esta sección con los filtros actuales: se oculta entera.
+      if (visibleSlotRows.length === 0 && visibleLeftover.length === 0 && !noScheduleAtAll) {
+        return null;
+      }
+
+      return (
+        <div key={section.professionalId}>
+          {/* Encabezado de profesional */}
+          <div className="mb-2 flex flex-wrap items-center gap-2">
+            <div className="size-2 rounded-full bg-accent" aria-hidden="true" />
+            <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+              {section.professionalName}
+            </p>
+            {visibleCount > 0 && (
+              <span className="text-xs text-muted-foreground">
+                · {visibleCount} cita{visibleCount !== 1 ? "s" : ""}
+              </span>
+            )}
+          </div>
+
+          {visibleSlotRows.length > 0 ? (
+            <ul className="space-y-1.5" role="list">
+              {visibleSlotRows.map(({ slot, appointment }) =>
+                appointment ? (
+                  <AppointmentRow
+                    key={appointment.id}
+                    a={appointment}
+                    onOpenCase={() => onOpenCase(appointment.case_id)}
+                  />
+                ) : (
+                  <EmptySlotRow
+                    key={slot.start}
+                    slot={slot}
+                    pending={!!pendingCaseName}
+                    onClick={() => onSlotClick(section.professionalId, slot.start)}
+                  />
+                )
+              )}
+            </ul>
+          ) : noScheduleAtAll ? (
+            <p className="text-xs text-muted-foreground/70">Sin citas en este día.</p>
+          ) : null}
+
+          {visibleLeftover.length > 0 && (
+            <div className="mt-2">
+              {visibleSlotRows.length > 0 && (
+                <p className="mb-1.5 text-[11px] font-medium uppercase tracking-wide text-muted-foreground/70">
+                  Otras citas (fuera de horario definido)
+                </p>
+              )}
+              <ul className="space-y-1.5" role="list">
+                {visibleLeftover.map((a) => (
+                  <AppointmentRow key={a.id} a={a} onOpenCase={() => onOpenCase(a.case_id)} />
+                ))}
+              </ul>
+            </div>
+          )}
+        </div>
+      );
+    })
+    .filter((el): el is React.ReactElement => el !== null);
+
   return (
     <div className="flex h-full flex-col" key={key}>
       {/* Header del día */}
@@ -92,9 +187,9 @@ export function DayDetailPanel({
             {formatDayHeader(day)}
           </h3>
           <p className="mt-0.5 text-sm text-muted-foreground">
-            {appointments.length === 0
+            {visibleAppointments.length === 0
               ? "Sin citas programadas"
-              : `${appointments.length} cita${appointments.length !== 1 ? "s" : ""} programada${appointments.length !== 1 ? "s" : ""}`}
+              : `${visibleAppointments.length} cita${visibleAppointments.length !== 1 ? "s" : ""} programada${visibleAppointments.length !== 1 ? "s" : ""}`}
           </p>
         </div>
         <Button size="sm" onClick={onNewAppointment} className="shrink-0">
@@ -118,76 +213,15 @@ export function DayDetailPanel({
             Agendar cita
           </Button>
         </div>
-      ) : (
-        <div className="space-y-5 overflow-y-auto">
-          {sections.map((section) => {
-            const slots = buildHourSlots(section.blocks);
-            const matchedIds = new Set<string>();
-            const slotRows = slots.map((slot) => {
-              const appt = section.appointments.find((a) =>
-                timeInRange(formatTime(a.scheduled_at), slot.start, slot.end)
-              );
-              if (appt) matchedIds.add(appt.id);
-              return { slot, appointment: appt };
-            });
-            const leftover = section.appointments.filter((a) => !matchedIds.has(a.id));
-
-            return (
-              <div key={section.professionalId}>
-                {/* Encabezado de profesional */}
-                <div className="mb-2 flex flex-wrap items-center gap-2">
-                  <div className="size-2 rounded-full bg-accent" aria-hidden="true" />
-                  <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                    {section.professionalName}
-                  </p>
-                  {section.appointments.length > 0 && (
-                    <span className="text-xs text-muted-foreground">
-                      · {section.appointments.length} cita{section.appointments.length !== 1 ? "s" : ""}
-                    </span>
-                  )}
-                </div>
-
-                {slots.length > 0 ? (
-                  <ul className="space-y-1.5" role="list">
-                    {slotRows.map(({ slot, appointment }) =>
-                      appointment ? (
-                        <AppointmentRow
-                          key={appointment.id}
-                          a={appointment}
-                          onOpenCase={() => onOpenCase(appointment.case_id)}
-                        />
-                      ) : (
-                        <EmptySlotRow
-                          key={slot.start}
-                          slot={slot}
-                          pending={!!pendingCaseName}
-                          onClick={() => onSlotClick(section.professionalId, slot.start)}
-                        />
-                      )
-                    )}
-                  </ul>
-                ) : section.appointments.length === 0 ? (
-                  <p className="text-xs text-muted-foreground/70">Sin citas en este día.</p>
-                ) : null}
-
-                {leftover.length > 0 && (
-                  <div className="mt-2">
-                    {slots.length > 0 && (
-                      <p className="mb-1.5 text-[11px] font-medium uppercase tracking-wide text-muted-foreground/70">
-                        Otras citas (fuera de horario definido)
-                      </p>
-                    )}
-                    <ul className="space-y-1.5" role="list">
-                      {leftover.map((a) => (
-                        <AppointmentRow key={a.id} a={a} onOpenCase={() => onOpenCase(a.case_id)} />
-                      ))}
-                    </ul>
-                  </div>
-                )}
-              </div>
-            );
-          })}
+      ) : sectionElements.length === 0 ? (
+        <div className="flex flex-1 flex-col items-center justify-center gap-2 rounded-lg border border-dashed border-border py-12 text-center">
+          <p className="text-sm font-medium text-foreground">Sin resultados con estos filtros</p>
+          <p className="text-xs text-muted-foreground">
+            Prueba a limpiar algún filtro para ver más horarios o citas.
+          </p>
         </div>
+      ) : (
+        <div className="space-y-5 overflow-y-auto">{sectionElements}</div>
       )}
     </div>
   );
@@ -278,17 +312,12 @@ function AppointmentRow({ a, onOpenCase }: { a: AppointmentFull; onOpenCase: () 
           </div>
           <div className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs text-muted-foreground">
             {a.case?.whatsapp && (
-              <a
-                href={waLink(a.case.whatsapp, citaAsignadaMsg(a.scheduled_at))}
-                target="_blank"
-                rel="noreferrer"
-                className="inline-flex items-center gap-1 text-accent hover:underline"
+              <WhatsAppLink
+                phone={a.case.whatsapp}
+                message={citaAsignadaMsg(a.scheduled_at)}
+                iconClassName="size-3"
                 onClick={(e) => e.stopPropagation()}
-                title="Abrir WhatsApp con el mensaje de la cita"
-              >
-                <Phone className="size-3" />
-                {a.case.whatsapp}
-              </a>
+              />
             )}
             <span aria-hidden="true">·</span>
             <span>{MODALITY_LABEL[a.modality]}</span>

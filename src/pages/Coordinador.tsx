@@ -8,6 +8,7 @@ import {
   URGENCY_BADGE,
   URGENCY_LABEL,
   URGENCY_ORDER,
+  citaAsignadaMsg,
   formatDateTime,
 } from "@/lib/domain";
 import { StaffLayout } from "@/components/StaffLayout";
@@ -20,6 +21,7 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { FullPageSpinner } from "@/components/ui/spinner";
+import { WhatsAppLink } from "@/components/ui/whatsapp-link";
 import {
   Select,
   SelectContent,
@@ -36,6 +38,8 @@ export default function Coordinador() {
   const [loading, setLoading] = useState(true);
   const [selected, setSelected] = useState<Case | null>(null);
   const [addCaseOpen, setAddCaseOpen] = useState(false);
+  // Proxima cita "programada" por caso, para el mensaje predeterminado de WhatsApp.
+  const [nextApptByCase, setNextApptByCase] = useState<Map<string, string>>(new Map());
 
   const [search, setSearch] = useState("");
   const [urgencyFilter, setUrgencyFilter] = useState<Urgency | "todas">("todas");
@@ -53,7 +57,24 @@ export default function Coordinador() {
       .from("cases")
       .select("*")
       .order("created_at", { ascending: false });
-    setCases((data as Case[]) ?? []);
+    const list = (data as Case[]) ?? [];
+    setCases(list);
+
+    if (list.length > 0) {
+      const { data: apptData } = await supabase
+        .from("appointments")
+        .select("case_id, scheduled_at")
+        .in("case_id", list.map((c) => c.id))
+        .eq("status", "programada")
+        .order("scheduled_at", { ascending: true });
+      const map = new Map<string, string>();
+      for (const a of (apptData as { case_id: string; scheduled_at: string }[]) ?? []) {
+        if (!map.has(a.case_id)) map.set(a.case_id, a.scheduled_at);
+      }
+      setNextApptByCase(map);
+    } else {
+      setNextApptByCase(new Map());
+    }
     setLoading(false);
   }
 
@@ -209,11 +230,27 @@ export default function Coordinador() {
                       className="cursor-pointer border-b border-border last:border-0 transition-colors hover:bg-secondary/50 focus:bg-secondary/50 focus:outline-none"
                     >
                       <td className="px-4 py-3">
-                        <div className="flex items-center gap-2 font-medium text-foreground">
+                        <div className="flex items-center gap-1.5 font-medium text-foreground">
                           {c.patient_name}
+                          <WhatsAppLink
+                            phone={c.whatsapp}
+                            message={
+                              nextApptByCase.has(c.id)
+                                ? citaAsignadaMsg(nextApptByCase.get(c.id)!)
+                                : undefined
+                            }
+                            iconOnly
+                            onClick={(e) => e.stopPropagation()}
+                          />
                         </div>
-                        <div className="text-xs text-muted-foreground">
-                          {c.city ?? "—"} · {c.whatsapp}
+                        <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                          <span>{c.city ?? "—"} ·</span>
+                          <WhatsAppLink
+                            phone={c.whatsapp}
+                            className="text-xs"
+                            iconClassName="size-3.5"
+                            onClick={(e) => e.stopPropagation()}
+                          />
                         </div>
                       </td>
                       <td className="px-4 py-3">

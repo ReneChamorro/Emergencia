@@ -28,13 +28,21 @@ import {
 } from "./CalendarFilters";
 import { Spinner } from "@/components/ui/spinner";
 
-/** Predicado de filtros aplicado a una cita (médico + franja + estado + urgencia). */
-function matchesFilters(a: AppointmentFull, f: CalendarFilterState): boolean {
-  if (f.professionalId !== "todos" && a.professional_id !== f.professionalId) return false;
+function matchesProfessional(a: AppointmentFull, f: CalendarFilterState): boolean {
+  return f.professionalId === "todos" || a.professional_id === f.professionalId;
+}
+
+/** Franja + estado + urgencia (todo excepto médico). Se aplica a nivel de fila, no de ocupación. */
+function matchesQualitative(a: AppointmentFull, f: CalendarFilterState): boolean {
   if (f.franja !== "todas" && timeOfDay(a.scheduled_at) !== f.franja) return false;
   if (f.apptStatus !== "todas" && a.status !== f.apptStatus) return false;
   if (f.urgency !== "todas" && (a.case?.urgency ?? null) !== f.urgency) return false;
   return true;
+}
+
+/** Predicado completo aplicado a una cita (médico + franja + estado + urgencia). */
+function matchesFilters(a: AppointmentFull, f: CalendarFilterState): boolean {
+  return matchesProfessional(a, f) && matchesQualitative(a, f);
 }
 
 export function CalendarioTab() {
@@ -120,7 +128,15 @@ export function CalendarioTab() {
   }, [appointments, filters]);
 
   const dayKey = toDateKey(selectedDay);
-  const dayAppointments = filteredByDate.get(dayKey) ?? [];
+
+  // Citas del día filtradas SOLO por médico (verdad de ocupación de horarios).
+  // Franja/estado/urgencia se aplican como filtro de fila dentro de DayDetailPanel,
+  // nunca deben hacer que un horario ocupado se muestre como libre.
+  const dayAppointmentsByProfessional = useMemo(() => {
+    const list = appointments.filter((a) => matchesProfessional(a, filters));
+    return groupByDate(list);
+  }, [appointments, filters]);
+  const dayAppointments = dayAppointmentsByProfessional.get(dayKey) ?? [];
 
   const dayOfWeek = dateToDayOfWeek(selectedDay);
 
@@ -238,6 +254,8 @@ export function CalendarioTab() {
               appointments={dayAppointments}
               availability={dayAvailability}
               professionals={professionals}
+              franja={filters.franja}
+              rowFilter={(a) => matchesQualitative(a, filters)}
               onNewAppointment={() => {
                 setSlotPreset(null);
                 setScheduleOpen(true);

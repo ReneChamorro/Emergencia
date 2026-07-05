@@ -53,7 +53,8 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Spinner } from "@/components/ui/spinner";
-import { AlertTriangle, CalendarPlus, Info as InfoIcon, Mail, MessageCircle, Trash2, UserMinus } from "lucide-react";
+import { AlertTriangle, CalendarPlus, Info as InfoIcon, Mail, Trash2, UserMinus } from "lucide-react";
+import { WhatsAppIcon, WhatsAppLink } from "@/components/ui/whatsapp-link";
 
 interface Props {
   caseItem: Case | null;
@@ -302,7 +303,10 @@ export function CaseDetailDialog({ caseItem, professionals, onOpenChange, onSave
 
         {/* Datos del paciente */}
         <div className="grid gap-3 rounded-md border border-border bg-muted/30 p-3 text-sm sm:grid-cols-2">
-          <InfoRow label="WhatsApp" value={caseItem.whatsapp} />
+          <div>
+            <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">WhatsApp</p>
+            <WhatsAppLink phone={caseItem.whatsapp} />
+          </div>
           {caseItem.email && <InfoRow label="Correo" value={caseItem.email} />}
           <InfoRow label="Edad / Ciudad" value={`${caseItem.patient_age ?? "—"} · ${caseItem.city ?? "—"}`} />
           <InfoRow label="Via preferida" value={PREF_MODALITY_LABEL[caseItem.preferred_modality]} />
@@ -488,9 +492,10 @@ export function CaseDetailDialog({ caseItem, professionals, onOpenChange, onSave
                         href={waLink(caseItem.whatsapp, citaAsignadaMsg(a.scheduled_at))}
                         target="_blank"
                         rel="noreferrer"
-                        className="inline-flex items-center gap-1 rounded-md border border-success/40 px-2 py-1 text-xs font-medium text-success transition-colors hover:bg-success/10"
+                        title="Abrir WhatsApp con el mensaje de la cita"
+                        className="inline-flex items-center gap-1 rounded-md border border-whatsapp/40 px-2 py-1 text-xs font-medium text-whatsapp transition-colors hover:bg-whatsapp/10"
                       >
-                        <MessageCircle className="size-3.5" /> <span className="hidden xs:inline">Enviar por WhatsApp</span><span className="xs:hidden">WhatsApp</span>
+                        <WhatsAppIcon className="size-3.5" /> <span className="hidden xs:inline">Enviar por WhatsApp</span><span className="xs:hidden">WhatsApp</span>
                       </a>
                       <Badge className="border-border bg-secondary text-secondary-foreground">
                         {APPT_STATUS_LABEL[a.status]}

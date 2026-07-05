@@ -38,6 +38,10 @@
     --warning: 35 90% 48%;
     --warning-foreground: 30 50% 12%;
 
+    /* Verde WhatsApp (marca), usado solo para enlaces al chat del paciente */
+    --whatsapp: 142 70% 49%;
+    --whatsapp-foreground: 0 0% 100%;
+
     --border: 214 28% 88%;
     --input: 214 28% 86%;
     --ring: 211 90% 48%;

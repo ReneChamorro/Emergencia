@@ -26,6 +26,7 @@ import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { FullPageSpinner, Spinner } from "@/components/ui/spinner";
+import { WhatsAppIcon, WhatsAppLink } from "@/components/ui/whatsapp-link";
 import {
   Select,
   SelectContent,
@@ -33,7 +34,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { AlertTriangle, CalendarClock, CalendarPlus, MessageCircle, Phone, UserMinus } from "lucide-react";
+import { AlertTriangle, CalendarClock, CalendarPlus, UserMinus } from "lucide-react";
 
 export default function Profesional() {
   const { profile } = useAuth();
@@ -191,14 +192,7 @@ function ProfessionalCaseCard({
       </CardHeader>
       <CardContent className="space-y-4">
         <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-muted-foreground">
-          <a
-            href={`https://wa.me/${caseItem.whatsapp.replace(/[^\d]/g, "")}`}
-            target="_blank"
-            rel="noreferrer"
-            className="inline-flex items-center gap-1.5 font-medium text-accent hover:underline"
-          >
-            <Phone className="size-4" /> {caseItem.whatsapp}
-          </a>
+          <WhatsAppLink phone={caseItem.whatsapp} />
           {caseItem.email && <span>{caseItem.email}</span>}
           {(caseItem.patient_age || caseItem.city) && (
             <span>{caseItem.patient_age ? `${caseItem.patient_age} anos` : ""}{caseItem.city ? ` · ${caseItem.city}` : ""}</span>
@@ -271,9 +265,10 @@ function ProfessionalCaseCard({
                     href={waLink(caseItem.whatsapp, citaAsignadaMsg(a.scheduled_at))}
                     target="_blank"
                     rel="noreferrer"
-                    className="inline-flex items-center gap-1 rounded-md border border-success/40 px-2 py-1 text-xs font-medium text-success transition-colors hover:bg-success/10"
+                    title="Abrir WhatsApp con el mensaje de la cita"
+                    className="inline-flex items-center gap-1 rounded-md border border-whatsapp/40 px-2 py-1 text-xs font-medium text-whatsapp transition-colors hover:bg-whatsapp/10"
                   >
-                    <MessageCircle className="size-3.5" /> WhatsApp
+                    <WhatsAppIcon className="size-3.5" /> WhatsApp
                   </a>
                   <Select value={a.status} onValueChange={(v) => void setApptStatus(a.id, v as ApptStatus)}>
                     <SelectTrigger className="h-9 w-[150px]"><SelectValue /></SelectTrigger>
