@@ -14,7 +14,7 @@ import { Spinner } from "@/components/ui/spinner";
 import { cn } from "@/lib/utils";
 
 const DAYS = ["Lunes", "Martes", "Miercoles", "Jueves", "Viernes", "Sabado", "Domingo", "Cualquier dia"];
-const TIMES = ["Manana", "Mediodia", "Tarde", "Noche", "Cualquier horario"];
+const TIMES = ["Manana", "Mediodia", "Tarde", "Cualquier horario"];
 const STEPS = ["Tus datos", "Modalidad", "Disponibilidad", "Confirmar"];
 
 interface FormState {
@@ -363,6 +363,9 @@ export default function Intake() {
                 <legend className="text-base font-medium text-foreground">
                   En que horario podrias ser atendido/a?
                 </legend>
+                <p className="text-xs text-muted-foreground">
+                  Atendemos hasta las <strong>6:00 p. m.</strong>
+                </p>
                 <div className="flex flex-wrap gap-2">
                   {TIMES.map((t) => {
                     const selected = form.available_times.includes(t);
@@ -385,13 +388,19 @@ export default function Intake() {
                 </div>
               </fieldset>
 
+              <p className="rounded-md border border-accent/30 bg-accent/5 p-3 text-xs text-muted-foreground">
+                Estos son tus dias y horario preferidos, no una cita confirmada. El equipo
+                coordinador te asignara una hora especifica dentro de esos dias segun la
+                disponibilidad de nuestros profesionales.
+              </p>
+
               <div className="space-y-1.5">
                 <Label htmlFor="availability">Horarios especificos disponibles (opcional)</Label>
                 <Input
                   id="availability"
                   value={form.availability}
                   onChange={(e) => update("availability", e.target.value)}
-                  placeholder='Ej: "lunes despues de las 3pm", "cualquier dia despues de las 6pm"'
+                  placeholder='Ej: "lunes despues de las 3pm", "cualquier dia antes de las 6pm"'
                   maxLength={LIMITS.availability}
                 />
               </div>
@@ -427,7 +436,7 @@ export default function Intake() {
                   id="observations"
                   value={form.observations}
                   onChange={(e) => update("observations", e.target.value)}
-                  placeholder='Ej: "solo puedo por llamada", "no tengo privacidad en casa", "prefiero horario nocturno"'
+                  placeholder='Ej: "solo puedo por llamada", "no tengo privacidad en casa", "prefiero despues del mediodia"'
                   className="min-h-[88px]"
                   maxLength={LIMITS.observations}
                 />
