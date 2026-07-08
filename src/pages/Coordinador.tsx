@@ -22,6 +22,7 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { FullPageSpinner } from "@/components/ui/spinner";
 import { WhatsAppLink } from "@/components/ui/whatsapp-link";
+import { AgeGroupBadges } from "@/components/ui/age-group-badges";
 import {
   Select,
   SelectContent,
@@ -264,7 +265,8 @@ export default function Coordinador() {
                         </Badge>
                       </td>
                       <td className="px-4 py-3 text-muted-foreground">
-                        {prof?.full_name ?? "Sin asignar"}
+                        <div>{prof?.full_name ?? "Sin asignar"}</div>
+                        <AgeGroupBadges groups={prof?.age_groups} className="mt-0.5" />
                       </td>
                       <td className="px-4 py-3 text-xs text-muted-foreground tabular-nums">
                         {formatDateTime(c.created_at)}

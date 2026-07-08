@@ -18,6 +18,7 @@ import {
 import { useMyAvailability } from "@/hooks/useAvailabilityBlocks";
 import { StaffLayout } from "@/components/StaffLayout";
 import { AvailabilityEditor } from "@/components/professional/AvailabilityEditor";
+import { AgeGroupsSettings } from "@/components/professional/AgeGroupsSettings";
 import { ScheduleFollowUpDialog } from "@/components/professional/ScheduleFollowUpDialog";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -84,6 +85,7 @@ export default function Profesional() {
         </TabsList>
 
         <TabsContent value="casos">
+          <AgeGroupsSettings />
           {cases.length === 0 ? (
             <Card>
               <CardContent className="py-12 text-center text-muted-foreground">

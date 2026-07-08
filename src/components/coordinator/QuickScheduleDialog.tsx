@@ -23,6 +23,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Spinner } from "@/components/ui/spinner";
+import { AgeGroupBadges } from "@/components/ui/age-group-badges";
 import { AlertTriangle } from "lucide-react";
 
 interface Props {
@@ -217,7 +218,10 @@ export function QuickScheduleDialog({
               <SelectContent>
                 {professionals.map((p) => (
                   <SelectItem key={p.id} value={p.id}>
-                    {p.full_name || "(sin nombre)"}
+                    <span className="inline-flex items-center gap-1.5">
+                      {p.full_name || "(sin nombre)"}
+                      <AgeGroupBadges groups={p.age_groups} short />
+                    </span>
                   </SelectItem>
                 ))}
               </SelectContent>

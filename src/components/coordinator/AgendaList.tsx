@@ -2,6 +2,7 @@ import { ChevronRight } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Spinner } from "@/components/ui/spinner";
 import { WhatsAppLink } from "@/components/ui/whatsapp-link";
+import { AgeGroupBadges } from "@/components/ui/age-group-badges";
 import {
   APPT_STATUS_LABEL,
   MODALITY_LABEL,
@@ -106,6 +107,7 @@ export function AgendaList({ appointments, loading, from, to, onOpenCase }: Prop
                         </div>
                         <div className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs text-muted-foreground">
                           <span>{a.professional?.full_name ?? "(sin profesional)"}</span>
+                          <AgeGroupBadges groups={a.professional?.age_groups} short />
                           <span aria-hidden="true">·</span>
                           <span>{MODALITY_LABEL[a.modality]}</span>
                           <span aria-hidden="true">·</span>

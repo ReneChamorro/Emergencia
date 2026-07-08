@@ -55,6 +55,7 @@ import { Badge } from "@/components/ui/badge";
 import { Spinner } from "@/components/ui/spinner";
 import { AlertTriangle, CalendarPlus, Info as InfoIcon, Mail, Trash2, UserMinus } from "lucide-react";
 import { WhatsAppIcon, WhatsAppLink } from "@/components/ui/whatsapp-link";
+import { AgeGroupBadges } from "@/components/ui/age-group-badges";
 import { MonthCalendar } from "./MonthCalendar";
 import { FreeSlotRow, OccupiedSlotRow } from "./DayScheduleSlots";
 
@@ -368,7 +369,12 @@ export function CaseDetailDialog({ caseItem, professionals, onOpenChange, onSave
               <SelectContent>
                 <SelectItem value="none">Sin asignar</SelectItem>
                 {professionals.map((p) => (
-                  <SelectItem key={p.id} value={p.id}>{p.full_name || "(sin nombre)"}</SelectItem>
+                  <SelectItem key={p.id} value={p.id}>
+                    <span className="inline-flex items-center gap-1.5">
+                      {p.full_name || "(sin nombre)"}
+                      <AgeGroupBadges groups={p.age_groups} short />
+                    </span>
+                  </SelectItem>
                 ))}
               </SelectContent>
             </Select>

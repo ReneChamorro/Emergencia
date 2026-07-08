@@ -5,6 +5,7 @@ export type ApptModality  = "llamada" | "videollamada" | "presencial";
 export type ApptStatus    = "programada" | "realizada" | "cancelada" | "no_asistio";
 export type PrefModality  = "videollamada" | "llamada" | "whatsapp_audio" | "cualquiera";
 export type StableConn    = "si" | "no" | "a_veces";
+export type AgeGroup      = "ninos_adolescentes" | "adultos" | "adultos_mayores";
 
 export interface Profile {
   id: string;
@@ -14,6 +15,7 @@ export interface Profile {
   phone: string | null;
   active: boolean;
   created_at: string;
+  age_groups: AgeGroup[];
 }
 
 export interface Case {

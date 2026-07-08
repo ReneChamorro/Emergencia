@@ -12,7 +12,7 @@ import {
 const APPT_SELECT = `
   *,
   case:cases ( id, patient_name, whatsapp, urgency, status, preferred_modality ),
-  professional:profiles!appointments_professional_id_fkey ( id, full_name )
+  professional:profiles!appointments_professional_id_fkey ( id, full_name, age_groups )
 `;
 
 export function useCalendarAppointments(month: Date) {

@@ -16,7 +16,7 @@ export function formatBlockTime(t: string): string {
 
 export interface AppointmentFull extends Appointment {
   case: Pick<Case, "id" | "patient_name" | "whatsapp" | "urgency" | "status" | "preferred_modality"> | null;
-  professional: Pick<Profile, "id" | "full_name"> | null;
+  professional: Pick<Profile, "id" | "full_name" | "age_groups"> | null;
 }
 
 export interface ProfessionalGroup {

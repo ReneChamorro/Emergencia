@@ -2,6 +2,7 @@ import { CalendarPlus, ChevronRight, MousePointerClick, Plus } from "lucide-reac
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { WhatsAppLink } from "@/components/ui/whatsapp-link";
+import { AgeGroupBadges } from "@/components/ui/age-group-badges";
 import {
   APPT_STATUS_LABEL,
   MODALITY_LABEL,
@@ -92,6 +93,8 @@ export function DayDetailPanel({
     a.professionalName.localeCompare(b.professionalName)
   );
 
+  const profMap = new Map(professionals.map((p) => [p.id, p]));
+
   const sectionElements = sections
     .map((section) => {
       const slots = buildHourSlots(section.blocks);
@@ -129,6 +132,7 @@ export function DayDetailPanel({
             <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
               {section.professionalName}
             </p>
+            <AgeGroupBadges groups={profMap.get(section.professionalId)?.age_groups} short />
             {visibleCount > 0 && (
               <span className="text-xs text-muted-foreground">
                 · {visibleCount} cita{visibleCount !== 1 ? "s" : ""}

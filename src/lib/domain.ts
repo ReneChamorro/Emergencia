@@ -5,6 +5,7 @@ import type {
   ApptModality,
   PrefModality,
   StableConn,
+  AgeGroup,
 } from "@/types/database";
 import { formatTime } from "@/lib/calendarUtils";
 
@@ -68,6 +69,24 @@ export const APPT_STATUS_LABEL: Record<ApptStatus, string> = {
   realizada: "Realizada",
   cancelada: "Cancelada",
   no_asistio: "No asistio",
+};
+
+export const AGE_GROUP_LABEL: Record<AgeGroup, string> = {
+  ninos_adolescentes: "Niños y adolescentes",
+  adultos: "Adultos",
+  adultos_mayores: "Adultos mayores",
+};
+
+export const AGE_GROUP_SHORT_LABEL: Record<AgeGroup, string> = {
+  ninos_adolescentes: "Niños",
+  adultos: "Adultos",
+  adultos_mayores: "Mayores",
+};
+
+export const AGE_GROUP_BADGE: Record<AgeGroup, string> = {
+  ninos_adolescentes: "bg-accent/10 text-accent border-accent/30",
+  adultos: "bg-secondary text-secondary-foreground border-border",
+  adultos_mayores: "bg-warning/15 text-warning-foreground border-warning/40",
 };
 
 // ---------- Formato ----------

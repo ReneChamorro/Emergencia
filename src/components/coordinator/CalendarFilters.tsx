@@ -13,6 +13,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { AgeGroupBadges } from "@/components/ui/age-group-badges";
 import { CalendarRange, ChevronDown, ChevronUp, FilterX, SlidersHorizontal } from "lucide-react";
 
 export interface CalendarFilterState {
@@ -116,7 +117,12 @@ export function CalendarFilters({ professionals, value, onChange, onGoToDate }: 
                 <SelectContent>
                   <SelectItem value="todos">Todos los médicos</SelectItem>
                   {professionals.map((p) => (
-                    <SelectItem key={p.id} value={p.id}>{p.full_name || "(sin nombre)"}</SelectItem>
+                    <SelectItem key={p.id} value={p.id}>
+                      <span className="inline-flex items-center gap-1.5">
+                        {p.full_name || "(sin nombre)"}
+                        <AgeGroupBadges groups={p.age_groups} short />
+                      </span>
+                    </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
