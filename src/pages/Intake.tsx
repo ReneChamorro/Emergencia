@@ -393,17 +393,6 @@ export default function Intake() {
                 coordinador te asignara una hora especifica dentro de esos dias segun la
                 disponibilidad de nuestros profesionales.
               </p>
-
-              <div className="space-y-1.5">
-                <Label htmlFor="availability">Horarios especificos disponibles (opcional)</Label>
-                <Input
-                  id="availability"
-                  value={form.availability}
-                  onChange={(e) => update("availability", e.target.value)}
-                  placeholder='Ej: "lunes despues de las 3pm", "cualquier dia antes de las 6pm"'
-                  maxLength={LIMITS.availability}
-                />
-              </div>
             </div>
           )}
 
@@ -427,7 +416,6 @@ export default function Intake() {
                 {form.available_times.length > 0 && (
                   <Row label="Horarios" value={form.available_times.join(", ")} />
                 )}
-                {form.availability && <Row label="Detalle horario" value={form.availability} />}
               </div>
 
               <div className="space-y-1.5">
