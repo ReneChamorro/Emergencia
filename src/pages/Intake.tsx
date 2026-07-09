@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { CheckCircle2, HeartPulse, ChevronLeft, ChevronRight } from "lucide-react";
 import { supabase, isSupabaseConfigured } from "@/lib/supabase";
@@ -61,6 +61,19 @@ export default function Intake() {
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [done, setDone] = useState(false);
+  const [availableDows, setAvailableDows] = useState<number[] | null>(null);
+
+  useEffect(() => {
+    supabase.rpc("available_weekdays").then(({ data, error: rpcError }) => {
+      // Si falla la consulta, no bloqueamos el formulario: mostramos todos los dias.
+      setAvailableDows(rpcError || !data ? [0, 1, 2, 3, 4, 5, 6] : (data as number[]));
+    });
+  }, []);
+
+  const visibleDays =
+    availableDows === null
+      ? null
+      : [...DAYS.slice(0, 7).filter((_, i) => availableDows.includes(i)), "Cualquier dia"];
 
   function update<K extends keyof FormState>(key: K, value: FormState[K]) {
     setForm((f) => ({ ...f, [key]: value }));
@@ -337,26 +350,30 @@ export default function Intake() {
                 <legend className="text-base font-medium text-foreground">
                   Que dias tienes disponibilidad?
                 </legend>
-                <div className="flex flex-wrap gap-2">
-                  {DAYS.map((day) => {
-                    const selected = form.available_days.includes(day);
-                    return (
-                      <button
-                        key={day}
-                        type="button"
-                        onClick={() => update("available_days", toggleItem(form.available_days, day))}
-                        className={cn(
-                          "rounded-full border-2 px-3 py-1.5 text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
-                          selected
-                            ? "border-accent bg-accent/10 text-accent"
-                            : "border-input bg-background text-foreground hover:bg-secondary"
-                        )}
-                      >
-                        {day}
-                      </button>
-                    );
-                  })}
-                </div>
+                {visibleDays === null ? (
+                  <p className="text-sm text-muted-foreground">Cargando dias disponibles...</p>
+                ) : (
+                  <div className="flex flex-wrap gap-2">
+                    {visibleDays.map((day) => {
+                      const selected = form.available_days.includes(day);
+                      return (
+                        <button
+                          key={day}
+                          type="button"
+                          onClick={() => update("available_days", toggleItem(form.available_days, day))}
+                          className={cn(
+                            "rounded-full border-2 px-3 py-1.5 text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+                            selected
+                              ? "border-accent bg-accent/10 text-accent"
+                              : "border-input bg-background text-foreground hover:bg-secondary"
+                          )}
+                        >
+                          {day}
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
               </fieldset>
 
               <fieldset className="space-y-2">
