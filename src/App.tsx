@@ -4,6 +4,7 @@ import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { FullPageSpinner } from "@/components/ui/spinner";
 import Intake from "@/pages/Intake";
 import Login from "@/pages/Login";
+import ResetPassword from "@/pages/ResetPassword";
 import Coordinador from "@/pages/Coordinador";
 import Profesional from "@/pages/Profesional";
 import NotFound from "@/pages/NotFound";
@@ -26,6 +27,7 @@ export default function App() {
     <Routes>
       <Route path="/" element={<Intake />} />
       <Route path="/login" element={<Login />} />
+      <Route path="/restablecer-contrasena" element={<ResetPassword />} />
       <Route path="/panel" element={<StaffHome />} />
       <Route
         path="/coordinador"

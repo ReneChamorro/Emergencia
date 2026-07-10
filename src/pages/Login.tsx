@@ -19,7 +19,7 @@ import { Spinner } from "@/components/ui/spinner";
 export default function Login() {
   const { session, profile, signIn } = useAuth();
   const navigate = useNavigate();
-  const [mode, setMode] = useState<"signin" | "signup">("signin");
+  const [mode, setMode] = useState<"signin" | "signup" | "forgot">("signin");
   const [fullName, setFullName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -49,6 +49,17 @@ export default function Login() {
       if (mode === "signin") {
         const { error } = await signIn(email, password);
         if (error) setError(traducirError(error));
+      } else if (mode === "forgot") {
+        const { error } = await supabase.auth.resetPasswordForEmail(email, {
+          redirectTo: `${window.location.origin}/restablecer-contrasena`,
+        });
+        if (error) {
+          setError(traducirError(error.message));
+        } else {
+          setInfo(
+            "Si el correo esta registrado, te enviamos un enlace para restablecer la contrasena. Revisa tu bandeja de entrada (o spam)."
+          );
+        }
       } else {
         const { error } = await supabase.auth.signUp({
           email,
@@ -82,12 +93,18 @@ export default function Login() {
       <Card className="w-full max-w-md animate-fade-in">
         <CardHeader>
           <CardTitle>
-            {mode === "signin" ? "Acceso del personal" : "Crear cuenta"}
+            {mode === "signin"
+              ? "Acceso del personal"
+              : mode === "forgot"
+                ? "Recuperar contrasena"
+                : "Crear cuenta"}
           </CardTitle>
           <CardDescription>
             {mode === "signin"
               ? "Coordinadores y profesionales voluntarios."
-              : "Las cuentas nuevas se crean como profesionales. Un coordinador (o el administrador de la base de datos) asigna el rol de coordinacion."}
+              : mode === "forgot"
+                ? "Escribe tu correo y te enviaremos un enlace para restablecer tu contrasena."
+                : "Las cuentas nuevas se crean como profesionales. Un coordinador (o el administrador de la base de datos) asigna el rol de coordinacion."}
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -125,20 +142,37 @@ export default function Login() {
                 required
               />
             </div>
-            <div className="space-y-1.5">
-              <Label htmlFor="password">Contrasena</Label>
-              <PasswordInput
-                id="password"
-                name="password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                autoComplete={
-                  mode === "signin" ? "current-password" : "new-password"
-                }
-                minLength={6}
-                required
-              />
-            </div>
+            {mode !== "forgot" && (
+              <div className="space-y-1.5">
+                <Label htmlFor="password">Contrasena</Label>
+                <PasswordInput
+                  id="password"
+                  name="password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  autoComplete={
+                    mode === "signin" ? "current-password" : "new-password"
+                  }
+                  minLength={6}
+                  required
+                />
+              </div>
+            )}
+            {mode === "signin" && (
+              <div className="text-right">
+                <button
+                  type="button"
+                  className="text-sm font-medium text-accent hover:underline"
+                  onClick={() => {
+                    setMode("forgot");
+                    setError(null);
+                    setInfo(null);
+                  }}
+                >
+                  ¿Olvidaste tu contrasena?
+                </button>
+              </div>
+            )}
 
             {error && (
               <p
@@ -159,29 +193,36 @@ export default function Login() {
 
             <Button type="submit" className="w-full" disabled={submitting}>
               {submitting && <Spinner className="text-primary-foreground" />}
-              {mode === "signin" ? "Ingresar" : "Crear cuenta"}
+              {mode === "signin"
+                ? "Ingresar"
+                : mode === "forgot"
+                  ? "Enviar enlace"
+                  : "Crear cuenta"}
             </Button>
           </form>
 
           <div className="mt-4 text-center text-sm text-muted-foreground">
-            {mode === "signin" ? (
+            {mode === "signin" && (
               <button
                 type="button"
                 className="font-medium text-accent hover:underline"
                 onClick={() => {
                   setMode("signup");
                   setError(null);
+                  setInfo(null);
                 }}
               >
                 Crear una cuenta nueva
               </button>
-            ) : (
+            )}
+            {(mode === "signup" || mode === "forgot") && (
               <button
                 type="button"
                 className="font-medium text-accent hover:underline"
                 onClick={() => {
                   setMode("signin");
                   setError(null);
+                  setInfo(null);
                 }}
               >
                 Ya tengo cuenta, iniciar sesion
