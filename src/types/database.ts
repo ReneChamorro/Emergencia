@@ -55,6 +55,8 @@ export interface Appointment {
   notes: string | null;
   created_by: string | null;
   created_at: string;
+  /** Consulta grupal: hasta 10 citas pueden compartir el mismo horario. */
+  is_group: boolean;
 }
 
 export interface AvailabilityBlock {
@@ -68,6 +70,8 @@ export interface AvailabilityBlock {
   end_time: string;
   active: boolean;
   created_at: string;
+  /** Bloque de consulta grupal (hasta 10 pacientes por horario) en vez de individual. */
+  is_group: boolean;
 }
 
 // Payload del formulario publico de agendamiento.

@@ -212,9 +212,14 @@ export const DOT_COLOR: Record<Urgency, string> = {
 
 // ---------- Franjas de 1 hora a partir de bloques de disponibilidad ----------
 
+/** Cupo maximo de pacientes en una franja de consulta grupal. */
+export const GROUP_CAPACITY = 10;
+
 export interface HourSlot {
   start: string; // "HH:MM"
   end: string;
+  /** Franja de consulta grupal (hasta GROUP_CAPACITY citas) en vez de individual. */
+  is_group: boolean;
 }
 
 function minutesToHHMM(total: number): string {
@@ -234,7 +239,7 @@ export function blockToHourSlots(block: AvailabilityBlock): HourSlot[] {
   let cursor = startMinutes;
   while (cursor < endMinutes) {
     const next = Math.min(cursor + 60, endMinutes);
-    slots.push({ start: minutesToHHMM(cursor), end: minutesToHHMM(next) });
+    slots.push({ start: minutesToHHMM(cursor), end: minutesToHHMM(next), is_group: block.is_group });
     cursor = next;
   }
   return slots;
@@ -250,6 +255,16 @@ export function buildHourSlots(blocks: AvailabilityBlock[]): HourSlot[] {
 
 export function timeInRange(time: string, start: string, end: string): boolean {
   return time >= start && time < end;
+}
+
+/** Todas las citas cuya hora cae dentro de la franja dada (para mostrar, incluye canceladas). */
+export function appointmentsInSlot<T extends { scheduled_at: string }>(appointments: T[], slot: HourSlot): T[] {
+  return appointments.filter((a) => timeInRange(formatTime(a.scheduled_at), slot.start, slot.end));
+}
+
+/** Cuantos cupos de una franja grupal siguen ocupados (solo cuenta citas "programada", igual que el trigger de la BD). */
+export function occupiedGroupSpots<T extends { status: string }>(slotAppointments: T[]): number {
+  return slotAppointments.filter((a) => a.status === "programada").length;
 }
 
 /**

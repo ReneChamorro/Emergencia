@@ -3,6 +3,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { WhatsAppLink } from "@/components/ui/whatsapp-link";
 import { AgeGroupBadges } from "@/components/ui/age-group-badges";
+import { GroupSlotRow } from "./DayScheduleSlots";
 import {
   APPT_STATUS_LABEL,
   MODALITY_LABEL,
@@ -11,13 +12,13 @@ import {
   citaAsignadaMsg,
 } from "@/lib/domain";
 import {
+  appointmentsInSlot,
   formatDayHeader,
   formatTime,
   franjaOfTime,
   groupByProfessional,
   toDateKey,
   buildHourSlots,
-  timeInRange,
   type AppointmentFull,
   type HourSlot,
   type TimeOfDay,
@@ -100,21 +101,22 @@ export function DayDetailPanel({
       const slots = buildHourSlots(section.blocks);
       const matchedIds = new Set<string>();
       const slotRows = slots.map((slot) => {
-        const appt = section.appointments.find((a) =>
-          timeInRange(formatTime(a.scheduled_at), slot.start, slot.end)
-        );
-        if (appt) matchedIds.add(appt.id);
-        return { slot, appointment: appt };
+        const matched = appointmentsInSlot(section.appointments, slot);
+        matched.forEach((a) => matchedIds.add(a.id));
+        return { slot, appointments: matched };
       });
       const leftover = section.appointments.filter((a) => !matchedIds.has(a.id));
 
       // Filas realmente visibles con los filtros activos. Una cita ocupada
       // que no pasa el filtro se oculta por completo (nunca cae a "libre").
-      const visibleSlotRows = slotRows.filter(({ slot, appointment }) =>
-        appointment
-          ? rowFilter(appointment)
-          : franja === "todas" || franjaOfTime(slot.start) === franja
-      );
+      // Los slots grupales solo se ocultan por franja: mezclan varios
+      // pacientes, así que el filtro de estado/urgencia no aplica a nivel
+      // de grupo (la capacidad mostrada debe ser siempre la real).
+      const visibleSlotRows = slotRows.filter(({ slot, appointments: slotAppts }) => {
+        if (slot.is_group) return franja === "todas" || franjaOfTime(slot.start) === franja;
+        const appt = slotAppts[0];
+        return appt ? rowFilter(appt) : franja === "todas" || franjaOfTime(slot.start) === franja;
+      });
       const visibleLeftover = leftover.filter(rowFilter);
       const visibleCount = section.appointments.filter(rowFilter).length;
       const noScheduleAtAll = slots.length === 0 && section.appointments.length === 0;
@@ -142,12 +144,21 @@ export function DayDetailPanel({
 
           {visibleSlotRows.length > 0 ? (
             <ul className="space-y-1.5" role="list">
-              {visibleSlotRows.map(({ slot, appointment }) =>
-                appointment ? (
+              {visibleSlotRows.map(({ slot, appointments: slotAppts }) =>
+                slot.is_group ? (
+                  <GroupSlotRow
+                    key={slot.start}
+                    slot={slot}
+                    appointments={slotAppts}
+                    selected={!!pendingCaseName}
+                    addLabel={pendingCaseName ? "Asignar aquí" : undefined}
+                    onAdd={() => onSlotClick(section.professionalId, slot.start)}
+                  />
+                ) : slotAppts[0] ? (
                   <AppointmentRow
-                    key={appointment.id}
-                    a={appointment}
-                    onOpenCase={() => onOpenCase(appointment.case_id)}
+                    key={slotAppts[0].id}
+                    a={slotAppts[0]}
+                    onOpenCase={() => onOpenCase(slotAppts[0].case_id)}
                   />
                 ) : (
                   <EmptySlotRow

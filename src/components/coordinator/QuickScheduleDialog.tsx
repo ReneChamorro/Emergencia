@@ -24,7 +24,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Spinner } from "@/components/ui/spinner";
 import { AgeGroupBadges } from "@/components/ui/age-group-badges";
-import { AlertTriangle } from "lucide-react";
+import { AlertTriangle, Users } from "lucide-react";
 
 interface Props {
   open: boolean;
@@ -118,6 +118,11 @@ export function QuickScheduleDialog({
     const dt = new Date(selectedDate);
     dt.setHours(hours, minutes, 0, 0);
 
+    // El horario puede venir de un bloque de disponibilidad grupal: heredar is_group.
+    const isGroupSlot = professionalBlocks.some(
+      (b) => b.is_group && time >= formatBlockTime(b.start_time) && time < formatBlockTime(b.end_time)
+    );
+
     setSaving(true);
     const { error: err } = await supabase.from("appointments").insert({
       case_id: caseId,
@@ -126,11 +131,14 @@ export function QuickScheduleDialog({
       modality,
       contact_number: Number(contactNo),
       created_by: profile?.id ?? null,
+      is_group: isGroupSlot,
     });
 
     if (err) {
       setSaving(false);
-      setError("No se pudo agendar. Intenta de nuevo.");
+      setError(
+        /mezclar|maximo de 10|ya esta ocupado/i.test(err.message) ? err.message : "No se pudo agendar. Intenta de nuevo."
+      );
       return;
     }
 
@@ -269,9 +277,11 @@ export function QuickScheduleDialog({
               {professionalBlocks.map((b) => (
                 <span
                   key={b.id}
-                  className="inline-flex items-center rounded-full border border-success/30 bg-success/10 px-2 py-0.5 text-xs font-medium text-success"
+                  className="inline-flex items-center gap-1 rounded-full border border-success/30 bg-success/10 px-2 py-0.5 text-xs font-medium text-success"
                 >
+                  {b.is_group && <Users className="size-3" />}
                   Disponible {formatBlockTime(b.start_time)}–{formatBlockTime(b.end_time)}
+                  {b.is_group && " (grupal)"}
                 </span>
               ))}
             </div>

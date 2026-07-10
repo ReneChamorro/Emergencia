@@ -4,8 +4,9 @@ import type { Appointment, ApptModality, AvailabilityBlock, Case } from "@/types
 import { MODALITY_LABEL } from "@/lib/domain";
 import { useCalendarAppointments } from "@/hooks/useCalendarAppointments";
 import { MonthCalendar } from "@/components/coordinator/MonthCalendar";
-import { FreeSlotRow, OccupiedSlotRow } from "@/components/coordinator/DayScheduleSlots";
+import { FreeSlotRow, GroupSlotRow, OccupiedSlotRow } from "@/components/coordinator/DayScheduleSlots";
 import {
+  appointmentsInSlot,
   buildHourSlots,
   formatDayHeader,
   formatTime,
@@ -13,7 +14,6 @@ import {
   groupByDate,
   parseDateInput,
   startOfDay,
-  timeInRange,
   toDateKey,
 } from "@/lib/calendarUtils";
 import {
@@ -123,9 +123,9 @@ export function ScheduleFollowUpDialog({
     const slots = buildHourSlots(dayBlocks);
     const matchedIds = new Set<string>();
     const rows = slots.map((slot) => {
-      const appt = dayAppointments.find((a) => timeInRange(formatTime(a.scheduled_at), slot.start, slot.end));
-      if (appt) matchedIds.add(appt.id);
-      return { slot, appointment: appt };
+      const matched = appointmentsInSlot(dayAppointments, slot);
+      matched.forEach((a) => matchedIds.add(a.id));
+      return { slot, appointments: matched };
     });
     const leftover = dayAppointments.filter((a) => !matchedIds.has(a.id));
     return { rows, leftover };
@@ -135,6 +135,7 @@ export function ScheduleFollowUpDialog({
     setError(null);
     if (!selectedStart) { setError("Selecciona una franja horaria."); return; }
 
+    const matchingSlot = slotRows.rows.find((r) => r.slot.start === selectedStart)?.slot;
     const [h, m] = selectedStart.split(":").map(Number);
     const dt = parseDateInput(dayKey);
     dt.setHours(h, m, 0, 0);
@@ -147,11 +148,12 @@ export function ScheduleFollowUpDialog({
       modality,
       contact_number: nextContact,
       created_by: professionalId,
+      is_group: matchingSlot?.is_group ?? false,
     });
     setSaving(false);
 
     if (err) {
-      setError("No se pudo agendar. Intenta de nuevo.");
+      setError(/mezclar|maximo de 10|ya esta ocupado/i.test(err.message) ? err.message : "No se pudo agendar. Intenta de nuevo.");
       return;
     }
     onSaved();
@@ -212,9 +214,18 @@ export function ScheduleFollowUpDialog({
                   </p>
                 ) : (
                   <ul className="space-y-1.5" role="list">
-                    {slotRows.rows.map(({ slot, appointment }) =>
-                      appointment ? (
-                        <OccupiedSlotRow key={appointment.id} slot={slot} appointment={appointment} />
+                    {slotRows.rows.map(({ slot, appointments: slotAppts }) =>
+                      slot.is_group ? (
+                        <GroupSlotRow
+                          key={slot.start}
+                          slot={slot}
+                          appointments={slotAppts}
+                          selected={selectedStart === slot.start}
+                          disableAdd={slotAppts.some((a) => a.case_id === caseItem.id && a.status === "programada")}
+                          onAdd={() => setSelectedStart(slot.start)}
+                        />
+                      ) : slotAppts.length > 0 ? (
+                        <OccupiedSlotRow key={slotAppts[0].id} slot={slot} appointment={slotAppts[0]} />
                       ) : (
                         <FreeSlotRow
                           key={slot.start}
@@ -225,7 +236,7 @@ export function ScheduleFollowUpDialog({
                       )
                     )}
                     {slotRows.leftover.map((a) => (
-                      <OccupiedSlotRow key={a.id} slot={{ start: formatTime(a.scheduled_at), end: "" }} appointment={a} />
+                      <OccupiedSlotRow key={a.id} slot={{ start: formatTime(a.scheduled_at), end: "", is_group: false }} appointment={a} />
                     ))}
                   </ul>
                 )}

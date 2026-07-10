@@ -3,7 +3,7 @@ import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/context/AuthContext";
 import { useMyAvailability } from "@/hooks/useAvailabilityBlocks";
 import type { AvailabilityBlock } from "@/types/database";
-import { dateToDayOfWeek, formatBlockTime, toDateInputValue } from "@/lib/calendarUtils";
+import { GROUP_CAPACITY, dateToDayOfWeek, formatBlockTime, toDateInputValue } from "@/lib/calendarUtils";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -17,7 +17,7 @@ import {
 } from "@/components/ui/select";
 import { Card, CardContent } from "@/components/ui/card";
 import { Spinner } from "@/components/ui/spinner";
-import { AlertTriangle, CalendarDays, Clock, Plus, Trash2 } from "lucide-react";
+import { AlertTriangle, CalendarDays, Clock, Plus, Trash2, Users } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const DAY_NAMES = ["Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado", "Domingo"];
@@ -36,6 +36,7 @@ export function AvailabilityEditor() {
   const [newDay, setNewDay] = useState("0");
   const [newStart, setNewStart] = useState("09:00");
   const [newEnd, setNewEnd] = useState("13:00");
+  const [newIsGroup, setNewIsGroup] = useState(false);
   const [addingWeekly, setAddingWeekly] = useState(false);
   const [weeklyFormError, setWeeklyFormError] = useState<string | null>(null);
   const [weeklyDeleteError, setWeeklyDeleteError] = useState<string | null>(null);
@@ -44,6 +45,7 @@ export function AvailabilityEditor() {
   const [specDate, setSpecDate] = useState(() => toDateInputValue(new Date()));
   const [specStart, setSpecStart] = useState("09:00");
   const [specEnd, setSpecEnd] = useState("13:00");
+  const [specIsGroup, setSpecIsGroup] = useState(false);
   const [addingSpec, setAddingSpec] = useState(false);
   const [specFormError, setSpecFormError] = useState<string | null>(null);
   const [specDeleteError, setSpecDeleteError] = useState<string | null>(null);
@@ -137,9 +139,11 @@ export function AvailabilityEditor() {
       specific_date: null,
       start_time: newStart,
       end_time: newEnd,
+      is_group: newIsGroup,
     });
     setAddingWeekly(false);
     if (error) { setWeeklyFormError("No se pudo guardar. Intenta de nuevo."); return; }
+    setNewIsGroup(false);
     void reload();
   }
 
@@ -156,9 +160,11 @@ export function AvailabilityEditor() {
       specific_date: specDate,
       start_time: specStart,
       end_time: specEnd,
+      is_group: specIsGroup,
     });
     setAddingSpec(false);
     if (error) { setSpecFormError("No se pudo guardar. Intenta de nuevo."); return; }
+    setSpecIsGroup(false);
     void reload();
   }
 
@@ -253,6 +259,7 @@ export function AvailabilityEditor() {
                   <Label htmlFor="av-end">Hasta</Label>
                   <Input id="av-end" type="time" value={newEnd} onChange={(e) => setNewEnd(e.target.value)} className="w-[120px]" />
                 </div>
+                <SessionTypeToggle isGroup={newIsGroup} onChange={setNewIsGroup} />
                 <Button onClick={handleAddWeekly} disabled={addingWeekly}>
                   {addingWeekly ? <Spinner className="text-primary-foreground" /> : <Plus className="size-4" />}
                   Agregar
@@ -297,7 +304,14 @@ export function AvailabilityEditor() {
                     )}
                   >
                     <div className={cn("flex flex-col gap-0.5", !b.active && "opacity-50")}>
-                      <span className="font-medium capitalize text-foreground">{label}</span>
+                      <span className="flex items-center gap-1.5 font-medium capitalize text-foreground">
+                        {label}
+                        {b.is_group && (
+                          <span className="inline-flex items-center gap-1 rounded-full border border-accent/30 bg-accent/10 px-1.5 py-0 text-[10px] font-medium normal-case text-accent">
+                            <Users className="size-2.5" /> Grupal
+                          </span>
+                        )}
+                      </span>
                       <span className="flex items-center gap-1 text-xs text-muted-foreground">
                         <Clock className="size-3" />
                         {formatBlockTime(b.start_time)}–{formatBlockTime(b.end_time)}
@@ -353,6 +367,7 @@ export function AvailabilityEditor() {
                   <Label htmlFor="spec-end">Hasta</Label>
                   <Input id="spec-end" type="time" value={specEnd} onChange={(e) => setSpecEnd(e.target.value)} className="w-[120px]" />
                 </div>
+                <SessionTypeToggle isGroup={specIsGroup} onChange={setSpecIsGroup} />
                 <Button onClick={handleAddSpecific} disabled={addingSpec}>
                   {addingSpec ? <Spinner className="text-primary-foreground" /> : <Plus className="size-4" />}
                   Agregar
@@ -388,6 +403,7 @@ function BlockItem({
       <span className="flex items-center gap-1 font-medium tabular-nums">
         <Clock className="size-3 shrink-0" />
         {formatBlockTime(b.start_time)}–{formatBlockTime(b.end_time)}
+        {b.is_group && <Users className="size-3 shrink-0" aria-label="Consulta grupal" />}
       </span>
       <div className="flex items-center gap-1">
         <button
@@ -409,5 +425,39 @@ function BlockItem({
         </button>
       </div>
     </li>
+  );
+}
+
+function SessionTypeToggle({ isGroup, onChange }: { isGroup: boolean; onChange: (v: boolean) => void }) {
+  return (
+    <div className="space-y-1.5">
+      <Label>Tipo de consulta</Label>
+      <div className="flex gap-2">
+        <button
+          type="button"
+          onClick={() => onChange(false)}
+          className={cn(
+            "flex h-11 items-center gap-1.5 rounded-md border-2 px-3 text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+            !isGroup
+              ? "border-accent bg-accent/10 text-accent"
+              : "border-input bg-background text-foreground hover:bg-secondary"
+          )}
+        >
+          Individual
+        </button>
+        <button
+          type="button"
+          onClick={() => onChange(true)}
+          className={cn(
+            "flex h-11 items-center gap-1.5 rounded-md border-2 px-3 text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+            isGroup
+              ? "border-accent bg-accent/10 text-accent"
+              : "border-input bg-background text-foreground hover:bg-secondary"
+          )}
+        >
+          <Users className="size-4" /> Grupal (hasta {GROUP_CAPACITY})
+        </button>
+      </div>
+    </div>
   );
 }

@@ -24,6 +24,7 @@ import {
 import { notifyProfessionalAssigned } from "@/lib/notifications";
 import { useCalendarAppointments } from "@/hooks/useCalendarAppointments";
 import {
+  appointmentsInSlot,
   buildHourSlots,
   formatDayHeader,
   formatTime,
@@ -31,7 +32,6 @@ import {
   groupByDate,
   parseDateInput,
   startOfDay,
-  timeInRange,
   toDateKey,
 } from "@/lib/calendarUtils";
 import {
@@ -57,7 +57,7 @@ import { AlertTriangle, CalendarPlus, Info as InfoIcon, Mail, Trash2, UserMinus 
 import { WhatsAppIcon, WhatsAppLink } from "@/components/ui/whatsapp-link";
 import { AgeGroupBadges } from "@/components/ui/age-group-badges";
 import { MonthCalendar } from "./MonthCalendar";
-import { FreeSlotRow, OccupiedSlotRow } from "./DayScheduleSlots";
+import { FreeSlotRow, GroupSlotRow, OccupiedSlotRow } from "./DayScheduleSlots";
 
 interface Props {
   caseItem: Case | null;
@@ -174,9 +174,9 @@ export function CaseDetailDialog({ caseItem, professionals, onOpenChange, onSave
     const slotsList = buildHourSlots(dayBlocks);
     const matchedIds = new Set<string>();
     const rows = slotsList.map((slot) => {
-      const appt = dayAppointments.find((a) => timeInRange(formatTime(a.scheduled_at), slot.start, slot.end));
-      if (appt) matchedIds.add(appt.id);
-      return { slot, appointment: appt };
+      const matched = appointmentsInSlot(dayAppointments, slot);
+      matched.forEach((a) => matchedIds.add(a.id));
+      return { slot, appointments: matched };
     });
     const leftover = dayAppointments.filter((a) => !matchedIds.has(a.id));
     return { rows, leftover };
@@ -272,6 +272,7 @@ export function CaseDetailDialog({ caseItem, professionals, onOpenChange, onSave
     setSchedulingErr(null);
     if (!assigned) { setSchedulingErr("Primero asigna un profesional y guarda."); return; }
     if (!selectedStart) { setSchedulingErr("Selecciona una franja horaria disponible."); return; }
+    const matchingSlot = slotRows.rows.find((r) => r.slot.start === selectedStart)?.slot;
     const [h, m] = selectedStart.split(":").map(Number);
     const dt = parseDateInput(dayKey);
     dt.setHours(h, m, 0, 0);
@@ -282,8 +283,14 @@ export function CaseDetailDialog({ caseItem, professionals, onOpenChange, onSave
       modality: apptModality,
       contact_number: Number(apptContactNo),
       created_by: profile?.id ?? null,
+      is_group: matchingSlot?.is_group ?? false,
     });
-    if (error) { setSchedulingErr("No se pudo agendar la cita."); return; }
+    if (error) {
+      setSchedulingErr(
+        /mezclar|maximo de 10|ya esta ocupado/i.test(error.message) ? error.message : "No se pudo agendar la cita."
+      );
+      return;
+    }
     setSelectedStart(null);
     await Promise.all([loadAppointments(caseItem.id), reloadMonth()]);
   }
@@ -602,9 +609,18 @@ export function CaseDetailDialog({ caseItem, professionals, onOpenChange, onSave
                     </p>
                   ) : (
                     <ul className="space-y-1.5" role="list">
-                      {slotRows.rows.map(({ slot, appointment }) =>
-                        appointment ? (
-                          <OccupiedSlotRow key={appointment.id} slot={slot} appointment={appointment} />
+                      {slotRows.rows.map(({ slot, appointments: slotAppts }) =>
+                        slot.is_group ? (
+                          <GroupSlotRow
+                            key={slot.start}
+                            slot={slot}
+                            appointments={slotAppts}
+                            selected={selectedStart === slot.start}
+                            disableAdd={slotAppts.some((a) => a.case_id === caseItem.id && a.status === "programada")}
+                            onAdd={() => setSelectedStart(slot.start)}
+                          />
+                        ) : slotAppts.length > 0 ? (
+                          <OccupiedSlotRow key={slotAppts[0].id} slot={slot} appointment={slotAppts[0]} />
                         ) : (
                           <FreeSlotRow
                             key={slot.start}
@@ -615,7 +631,7 @@ export function CaseDetailDialog({ caseItem, professionals, onOpenChange, onSave
                         )
                       )}
                       {slotRows.leftover.map((a) => (
-                        <OccupiedSlotRow key={a.id} slot={{ start: formatTime(a.scheduled_at), end: "" }} appointment={a} />
+                        <OccupiedSlotRow key={a.id} slot={{ start: formatTime(a.scheduled_at), end: "", is_group: false }} appointment={a} />
                       ))}
                     </ul>
                   )}

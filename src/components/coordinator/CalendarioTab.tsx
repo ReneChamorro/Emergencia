@@ -12,6 +12,8 @@ import {
   timeOfDay,
   parseDateInput,
   groupByDate,
+  getBlocksForDate,
+  formatBlockTime,
   type AppointmentFull,
 } from "@/lib/calendarUtils";
 import { MonthCalendar } from "./MonthCalendar";
@@ -80,6 +82,15 @@ export function CalendarioTab() {
     const dt = new Date(selectedDay);
     dt.setHours(hours, minutes, 0, 0);
 
+    // El slot puede venir de un bloque de disponibilidad grupal: heredar is_group.
+    const professionalBlocksForDay = getBlocksForDate(
+      availabilityBlocks.filter((b) => b.professional_id === professionalId),
+      selectedDay
+    );
+    const isGroupSlot = professionalBlocksForDay.some(
+      (b) => b.is_group && time >= formatBlockTime(b.start_time) && time < formatBlockTime(b.end_time)
+    );
+
     const { error: apptErr } = await supabase.from("appointments").insert({
       case_id: selectedCaseId,
       professional_id: professionalId,
@@ -87,11 +98,16 @@ export function CalendarioTab() {
       modality: "videollamada",
       contact_number: 1,
       created_by: profile?.id ?? null,
+      is_group: isGroupSlot,
     });
 
     if (apptErr) {
       setAssigning(false);
-      setAssignError("No se pudo agendar la cita. Intenta de nuevo.");
+      setAssignError(
+        /mezclar|maximo de 10|ya esta ocupado/i.test(apptErr.message)
+          ? apptErr.message
+          : "No se pudo agendar la cita. Intenta de nuevo."
+      );
       return;
     }
 
