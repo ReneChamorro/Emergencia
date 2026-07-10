@@ -54,7 +54,7 @@ export default function Login() {
           redirectTo: `${window.location.origin}/restablecer-contrasena`,
         });
         if (error) {
-          setError(traducirError(error.message));
+          setError(traducirError(error.message, error.status));
         } else {
           setInfo(
             "Si el correo esta registrado, te enviamos un enlace para restablecer la contrasena. Revisa tu bandeja de entrada (o spam)."
@@ -67,7 +67,7 @@ export default function Login() {
           options: { data: { full_name: fullName } },
         });
         if (error) {
-          setError(traducirError(error.message));
+          setError(traducirError(error.message, error.status));
         } else {
           setInfo(
             "Cuenta creada. Si tu proyecto requiere confirmacion por correo, revisa tu email; si no, ya puedes iniciar sesion."
@@ -242,7 +242,7 @@ export default function Login() {
   );
 }
 
-function traducirError(msg: string): string {
+function traducirError(msg: string, status?: number): string {
   if (/invalid login credentials/i.test(msg))
     return "Correo o contrasena incorrectos.";
   if (/email not confirmed/i.test(msg))
@@ -253,5 +253,7 @@ function traducirError(msg: string): string {
     return "La contrasena debe tener al menos 6 caracteres.";
   if (/rate limit|too many requests|over_email_send_rate_limit/i.test(msg))
     return "Se enviaron demasiados intentos en poco tiempo. Espera unos minutos y vuelve a intentarlo.";
+  if ((status && status >= 500) || !msg || msg.trim() === "{}")
+    return "Ocurrio un error en el servidor al procesar la solicitud. Intenta de nuevo en unos minutos.";
   return msg;
 }
