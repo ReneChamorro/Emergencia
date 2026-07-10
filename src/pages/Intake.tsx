@@ -1,5 +1,4 @@
 import { useEffect, useState } from "react";
-import { Link } from "react-router-dom";
 import { CheckCircle2, HeartPulse, ChevronLeft, ChevronRight } from "lucide-react";
 import { supabase, isSupabaseConfigured } from "@/lib/supabase";
 import { intakeSchema, LIMITS } from "@/lib/validation";
@@ -496,14 +495,11 @@ function Shell({ children }: { children: React.ReactNode }) {
   return (
     <div className="min-h-dvh bg-background">
       <header className="border-b border-border bg-primary text-primary-foreground">
-        <div className="container flex h-16 items-center justify-between">
+        <div className="container flex h-16 items-center">
           <div className="flex items-center gap-2.5">
             <HeartPulse className="size-6 text-accent" aria-hidden="true" />
             <span className="font-semibold">Apoyo Psicologico de Emergencia</span>
           </div>
-          <Link to="/login" className="text-sm text-primary-foreground/80 hover:text-primary-foreground hover:underline">
-            Soy del equipo
-          </Link>
         </div>
       </header>
       <main className="container max-w-2xl py-8">
