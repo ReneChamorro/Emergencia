@@ -60,11 +60,31 @@ export default function Profesional() {
         .eq("professional_id", profile.id)
         .order("scheduled_at", { ascending: true }),
     ]);
-    const list = ((caseRes.data as Case[]) ?? []).sort(
-      (a, b) => URGENCY_ORDER[a.urgency] - URGENCY_ORDER[b.urgency]
-    );
+    const apptList = (apptRes.data as Appointment[]) ?? [];
+    const now = Date.now();
+    // Proxima cita "programada" y futura de un caso (la mas cercana). null si
+    // no tiene ninguna, o si las que tiene ya pasaron (ej. el profesional
+    // olvido marcarla como realizada/cancelada).
+    function nextApptTime(caseId: string): number | null {
+      const upcoming = apptList
+        .filter((a) => a.case_id === caseId && a.status === "programada" && new Date(a.scheduled_at).getTime() >= now)
+        .map((a) => new Date(a.scheduled_at).getTime());
+      return upcoming.length ? Math.min(...upcoming) : null;
+    }
+    const list = ((caseRes.data as Case[]) ?? []).sort((a, b) => {
+      const ta = nextApptTime(a.id);
+      const tb = nextApptTime(b.id);
+      // Los que tienen proxima cita van primero, ordenados por la mas cercana.
+      if (ta !== null && tb !== null) return ta - tb;
+      if (ta !== null) return -1;
+      if (tb !== null) return 1;
+      // Sin cita futura (incluye fechas ya pasadas): al final, por urgencia.
+      const u = URGENCY_ORDER[a.urgency] - URGENCY_ORDER[b.urgency];
+      if (u !== 0) return u;
+      return b.created_at.localeCompare(a.created_at);
+    });
     setCases(list);
-    setAppointments((apptRes.data as Appointment[]) ?? []);
+    setAppointments(apptList);
     setLoading(false);
 
     // Marcar como vistos los casos que aun no lo estaban: la marca "Nuevo" se
