@@ -22,6 +22,7 @@ import {
   waLink,
 } from "@/lib/domain";
 import { notifyProfessionalAssigned } from "@/lib/notifications";
+import { logCaseEvent } from "@/lib/caseEvents";
 import { useCalendarAppointments } from "@/hooks/useCalendarAppointments";
 import {
   appointmentsInSlot,
@@ -53,11 +54,12 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Spinner } from "@/components/ui/spinner";
-import { AlertTriangle, CalendarPlus, Info as InfoIcon, Mail, MailCheck, Trash2, UserMinus } from "lucide-react";
+import { AlertTriangle, CalendarPlus, History, Info as InfoIcon, Mail, MailCheck, Trash2, UserMinus } from "lucide-react";
 import { WhatsAppIcon, WhatsAppLink } from "@/components/ui/whatsapp-link";
 import { AgeGroupBadges } from "@/components/ui/age-group-badges";
 import { MonthCalendar } from "./MonthCalendar";
 import { FreeSlotRow, GroupSlotRow, OccupiedSlotRow } from "./DayScheduleSlots";
+import { CaseEventsTimeline } from "./CaseEventsTimeline";
 
 interface Props {
   caseItem: Case | null;
@@ -81,6 +83,7 @@ export function CaseDetailDialog({ caseItem, professionals, onOpenChange, onSave
   const [sendingEmail, setSendingEmail] = useState(false);
   const [emailFeedback, setEmailFeedback] = useState<string | null>(null);
   const [notifiedAt, setNotifiedAt] = useState<string | null>(null);
+  const [eventsVersion, setEventsVersion] = useState(0);
   const [deleteApptId, setDeleteApptId] = useState<string | null>(null);
   const [deletingAppt, setDeletingAppt] = useState(false);
 
@@ -195,6 +198,7 @@ export function CaseDetailDialog({ caseItem, professionals, onOpenChange, onSave
     setFeedback(null);
     let nextStatus = status;
     if (assigned && status === "nuevo") nextStatus = "asignado";
+    const prevAssigned = caseItem.assigned_professional_id ?? "";
 
     const { error } = await supabase
       .from("cases")
@@ -202,12 +206,13 @@ export function CaseDetailDialog({ caseItem, professionals, onOpenChange, onSave
       .eq("id", caseItem.id);
 
     if (!error && profile) {
-      await supabase.from("case_events").insert({
-        case_id: caseItem.id,
-        event_type: "actualizacion",
-        detail: `Urgencia: ${URGENCY_LABEL[urgency]}, estado: ${STATUS_LABEL[nextStatus]}`,
-        created_by: profile.id,
-      });
+      let detail = `Urgencia: ${URGENCY_LABEL[urgency]}, estado: ${STATUS_LABEL[nextStatus]}`;
+      if (assigned !== prevAssigned) {
+        const profName = professionals.find((p) => p.id === assigned)?.full_name ?? "sin asignar";
+        detail += `. Profesional: ${profName}`;
+      }
+      await logCaseEvent(caseItem.id, "actualizacion", detail, profile.id);
+      setEventsVersion((v) => v + 1);
     }
     setSaving(false);
     if (error) {
@@ -235,6 +240,9 @@ export function CaseDetailDialog({ caseItem, professionals, onOpenChange, onSave
         .update({ assignment_notified_at: now })
         .eq("id", caseItem.id);
       setNotifiedAt(now);
+      const profName = professionals.find((p) => p.id === assigned)?.full_name ?? "";
+      await logCaseEvent(caseItem.id, "correo_enviado", `Correo enviado a ${profName}`.trim(), profile?.id);
+      setEventsVersion((v) => v + 1);
       onSaved();
     }
     setSendingEmail(false);
@@ -264,10 +272,18 @@ export function CaseDetailDialog({ caseItem, professionals, onOpenChange, onSave
   async function handleUnassign() {
     if (!caseItem) return;
     setActing(true);
+    const prevProfName = professionals.find((p) => p.id === caseItem.assigned_professional_id)?.full_name ?? "";
     await supabase
       .from("cases")
       .update({ assigned_professional_id: null, status: "nuevo" })
       .eq("id", caseItem.id);
+    await logCaseEvent(
+      caseItem.id,
+      "desasignado",
+      `Desasignado de ${prevProfName || "profesional"} por el coordinador`,
+      profile?.id
+    );
+    setEventsVersion((v) => v + 1);
     setActing(false);
     setConfirm(null);
     setAssigned("");
@@ -302,6 +318,13 @@ export function CaseDetailDialog({ caseItem, professionals, onOpenChange, onSave
       );
       return;
     }
+    await logCaseEvent(
+      caseItem.id,
+      "cita_creada",
+      `Cita agendada: ${formatDateTime(dt.toISOString())} · ${MODALITY_LABEL[apptModality]} (contacto ${apptContactNo}/3)`,
+      profile?.id
+    );
+    setEventsVersion((v) => v + 1);
     setSelectedStart(null);
     await Promise.all([loadAppointments(caseItem.id), reloadMonth()]);
   }
@@ -309,6 +332,7 @@ export function CaseDetailDialog({ caseItem, professionals, onOpenChange, onSave
   async function handleDeleteAppointment(id: string) {
     if (!caseItem) return;
     setDeletingAppt(true);
+    const deleted = appointments.find((a) => a.id === id);
     const { data, error } = await supabase
       .from("appointments")
       .delete()
@@ -319,6 +343,15 @@ export function CaseDetailDialog({ caseItem, professionals, onOpenChange, onSave
     if (error || !data || data.length === 0) {
       setSchedulingErr("No se pudo borrar la cita (permisos).");
       return;
+    }
+    if (deleted) {
+      await logCaseEvent(
+        caseItem.id,
+        "cita_eliminada",
+        `Cita eliminada: ${formatDateTime(deleted.scheduled_at)} · ${MODALITY_LABEL[deleted.modality]}`,
+        profile?.id
+      );
+      setEventsVersion((v) => v + 1);
     }
     await Promise.all([loadAppointments(caseItem.id), reloadMonth()]);
     onSaved();
@@ -690,6 +723,14 @@ export function CaseDetailDialog({ caseItem, professionals, onOpenChange, onSave
             </div>
           )}
           {schedulingErr && <p role="alert" className="text-sm text-destructive">{schedulingErr}</p>}
+        </div>
+
+        {/* Historial */}
+        <div className="space-y-3 border-t border-border pt-4">
+          <h4 className="flex items-center gap-2 text-sm font-semibold">
+            <History className="size-4 text-accent" /> Historial del caso
+          </h4>
+          <CaseEventsTimeline caseId={caseItem.id} refreshKey={eventsVersion} />
         </div>
       </DialogContent>
     </Dialog>

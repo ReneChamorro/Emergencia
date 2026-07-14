@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/lib/supabase";
 import type { Appointment, ApptModality, AvailabilityBlock, Case } from "@/types/database";
-import { MODALITY_LABEL } from "@/lib/domain";
+import { MODALITY_LABEL, formatDateTime } from "@/lib/domain";
+import { logCaseEvent } from "@/lib/caseEvents";
 import { useCalendarAppointments } from "@/hooks/useCalendarAppointments";
 import { MonthCalendar } from "@/components/coordinator/MonthCalendar";
 import { FreeSlotRow, GroupSlotRow, OccupiedSlotRow } from "@/components/coordinator/DayScheduleSlots";
@@ -156,6 +157,12 @@ export function ScheduleFollowUpDialog({
       setError(/mezclar|maximo de 10|ya esta ocupado/i.test(err.message) ? err.message : "No se pudo agendar. Intenta de nuevo.");
       return;
     }
+    await logCaseEvent(
+      caseItem.id,
+      "cita_creada",
+      `Cita de seguimiento agendada: ${formatDateTime(dt.toISOString())} · ${MODALITY_LABEL[modality]} (contacto ${nextContact}/3)`,
+      professionalId
+    );
     onSaved();
     onClose();
   }

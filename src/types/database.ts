@@ -61,6 +61,24 @@ export interface Appointment {
   is_group: boolean;
 }
 
+export type CaseEventType =
+  | "actualizacion"
+  | "profesional"
+  | "correo_enviado"
+  | "cita_creada"
+  | "cita_actualizada"
+  | "cita_eliminada"
+  | "desasignado";
+
+export interface CaseEvent {
+  id: string;
+  case_id: string;
+  event_type: CaseEventType | (string & {});
+  detail: string | null;
+  created_by: string | null;
+  created_at: string;
+}
+
 export interface AvailabilityBlock {
   id: string;
   professional_id: string;

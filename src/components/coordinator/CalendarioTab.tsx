@@ -16,6 +16,8 @@ import {
   formatBlockTime,
   type AppointmentFull,
 } from "@/lib/calendarUtils";
+import { formatDateTime } from "@/lib/domain";
+import { logCaseEvent } from "@/lib/caseEvents";
 import { MonthCalendar } from "./MonthCalendar";
 import { DayDetailPanel } from "./DayDetailPanel";
 import { QuickScheduleDialog } from "./QuickScheduleDialog";
@@ -122,6 +124,14 @@ export function CalendarioTab() {
       setAssignError(`La cita se creó, pero no se pudo asignar el caso: ${caseErr.message}`);
       return;
     }
+
+    const profName = professionals.find((p) => p.id === professionalId)?.full_name ?? "";
+    await logCaseEvent(
+      selectedCaseId,
+      "cita_creada",
+      `Cita agendada con ${profName}: ${formatDateTime(dt.toISOString())} (contacto 1/3)`,
+      profile?.id
+    );
 
     setSelectedCaseId(null);
     void reload();

@@ -16,6 +16,7 @@ import {
   waLink,
 } from "@/lib/domain";
 import { useMyAvailability } from "@/hooks/useAvailabilityBlocks";
+import { logCaseEvent } from "@/lib/caseEvents";
 import { StaffLayout } from "@/components/StaffLayout";
 import { AvailabilityEditor } from "@/components/professional/AvailabilityEditor";
 import { AgeGroupsSettings } from "@/components/professional/AgeGroupsSettings";
@@ -35,7 +36,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { AlertTriangle, CalendarClock, CalendarPlus, UserMinus } from "lucide-react";
+import { AlertTriangle, CalendarClock, CalendarPlus, Sparkles, UserMinus } from "lucide-react";
 
 export default function Profesional() {
   const { profile } = useAuth();
@@ -171,6 +172,12 @@ function ProfessionalCaseCard({
       .from("cases")
       .update({ assigned_professional_id: null, status: "nuevo" })
       .eq("id", caseItem.id);
+    await logCaseEvent(
+      caseItem.id,
+      "desasignado",
+      `${profile?.full_name ?? "El profesional"} se desasigno del caso`,
+      profile?.id
+    );
     setUnassigning(false);
     setConfirmUnassign(false);
     onChanged();
@@ -178,6 +185,12 @@ function ProfessionalCaseCard({
 
   async function setApptStatus(id: string, newStatus: ApptStatus) {
     await supabase.from("appointments").update({ status: newStatus }).eq("id", id);
+    await logCaseEvent(
+      caseItem.id,
+      "cita_actualizada",
+      `Cita marcada como: ${APPT_STATUS_LABEL[newStatus]}`,
+      profile?.id
+    );
     onChanged();
   }
 
@@ -187,6 +200,14 @@ function ProfessionalCaseCard({
         <div className="flex flex-wrap items-center justify-between gap-2">
           <CardTitle>{caseItem.patient_name}</CardTitle>
           <div className="flex gap-2">
+            {!caseItem.assignment_notified_at && (
+              <Badge
+                className="gap-1 border-accent/40 bg-accent/10 text-accent"
+                title="Este caso te fue asignado; puede que aun no te haya llegado el correo de aviso"
+              >
+                <Sparkles className="size-3" /> Nuevo
+              </Badge>
+            )}
             <Badge className={URGENCY_BADGE[caseItem.urgency]}>{URGENCY_LABEL[caseItem.urgency]}</Badge>
             <Badge className={STATUS_BADGE[caseItem.status]}>{STATUS_LABEL[caseItem.status]}</Badge>
           </div>

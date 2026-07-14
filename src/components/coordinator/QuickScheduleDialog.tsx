@@ -2,8 +2,9 @@ import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/context/AuthContext";
 import type { ApptModality, AvailabilityBlock, Case, Profile } from "@/types/database";
-import { MODALITY_LABEL } from "@/lib/domain";
+import { MODALITY_LABEL, formatDateTime } from "@/lib/domain";
 import { formatBlockTime } from "@/lib/calendarUtils";
+import { logCaseEvent } from "@/lib/caseEvents";
 import {
   Dialog,
   DialogContent,
@@ -158,6 +159,14 @@ export function QuickScheduleDialog({
       setError(`La cita se creo, pero no se pudo asignar el caso: ${caseErr.message}`);
       return;
     }
+
+    const profName = professionals.find((p) => p.id === professionalId)?.full_name ?? "";
+    await logCaseEvent(
+      caseId,
+      "cita_creada",
+      `Cita agendada con ${profName}: ${formatDateTime(dt.toISOString())} · ${MODALITY_LABEL[modality]} (contacto ${contactNo}/3)`,
+      profile?.id
+    );
 
     onSaved();
     onClose();
