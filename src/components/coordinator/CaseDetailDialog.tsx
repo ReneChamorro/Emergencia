@@ -53,7 +53,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Spinner } from "@/components/ui/spinner";
-import { AlertTriangle, CalendarPlus, Info as InfoIcon, Mail, Trash2, UserMinus } from "lucide-react";
+import { AlertTriangle, CalendarPlus, Info as InfoIcon, Mail, MailCheck, Trash2, UserMinus } from "lucide-react";
 import { WhatsAppIcon, WhatsAppLink } from "@/components/ui/whatsapp-link";
 import { AgeGroupBadges } from "@/components/ui/age-group-badges";
 import { MonthCalendar } from "./MonthCalendar";
@@ -80,6 +80,7 @@ export function CaseDetailDialog({ caseItem, professionals, onOpenChange, onSave
   const [confirm, setConfirm] = useState<Confirm>(null);
   const [sendingEmail, setSendingEmail] = useState(false);
   const [emailFeedback, setEmailFeedback] = useState<string | null>(null);
+  const [notifiedAt, setNotifiedAt] = useState<string | null>(null);
   const [deleteApptId, setDeleteApptId] = useState<string | null>(null);
   const [deletingAppt, setDeletingAppt] = useState(false);
 
@@ -104,6 +105,7 @@ export function CaseDetailDialog({ caseItem, professionals, onOpenChange, onSave
     setSchedulingErr(null);
     setSelectedStart(null);
     setEmailFeedback(null);
+    setNotifiedAt(caseItem.assignment_notified_at);
     setDeleteApptId(null);
     setMonth(new Date());
     setSelectedDay(new Date());
@@ -226,6 +228,15 @@ export function CaseDetailDialog({ caseItem, professionals, onOpenChange, onSave
     setSendingEmail(true);
     setEmailFeedback(null);
     const result = await notifyProfessionalAssigned(caseItem.id, assigned);
+    if (result.ok) {
+      const now = new Date().toISOString();
+      await supabase
+        .from("cases")
+        .update({ assignment_notified_at: now })
+        .eq("id", caseItem.id);
+      setNotifiedAt(now);
+      onSaved();
+    }
     setSendingEmail(false);
     setEmailFeedback(result.ok ? "Correo enviado." : `No se pudo enviar: ${result.error ?? "error desconocido"}`);
   }
@@ -404,6 +415,16 @@ export function CaseDetailDialog({ caseItem, professionals, onOpenChange, onSave
                   {sendingEmail ? <Spinner className="size-3.5" /> : <Mail className="size-3.5" />}
                   Enviar correo al profesional
                 </Button>
+                {notifiedAt ? (
+                  <p className="mt-1 flex items-center gap-1 text-xs text-success">
+                    <MailCheck className="size-3.5" />
+                    Enviado el {formatDateTime(notifiedAt)}
+                  </p>
+                ) : (
+                  <p className="mt-1 text-xs text-warning-foreground">
+                    Aun no se ha enviado el correo a este profesional.
+                  </p>
+                )}
                 {emailFeedback && (
                   <p className="mt-1 text-xs text-muted-foreground">{emailFeedback}</p>
                 )}

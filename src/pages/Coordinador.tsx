@@ -30,7 +30,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { AlertTriangle, Inbox, RefreshCw, Search, UserPlus } from "lucide-react";
+import { AlertTriangle, Inbox, MailCheck, MailWarning, RefreshCw, Search, UserPlus } from "lucide-react";
 // AlertTriangle sigue usandose en StatCard (urgencia alta)
 
 export default function Coordinador() {
@@ -265,7 +265,25 @@ export default function Coordinador() {
                         </Badge>
                       </td>
                       <td className="px-4 py-3 text-muted-foreground">
-                        <div>{prof?.full_name ?? "Sin asignar"}</div>
+                        <div className="flex items-center gap-1.5">
+                          {prof?.full_name ?? "Sin asignar"}
+                          {prof &&
+                            (c.assignment_notified_at ? (
+                              <MailCheck
+                                className="size-3.5 shrink-0 text-success"
+                                aria-label="Correo enviado al profesional"
+                              >
+                                <title>{`Correo enviado el ${formatDateTime(c.assignment_notified_at)}`}</title>
+                              </MailCheck>
+                            ) : (
+                              <MailWarning
+                                className="size-3.5 shrink-0 text-warning"
+                                aria-label="Correo pendiente de enviar"
+                              >
+                                <title>Aun no se ha enviado el correo al profesional</title>
+                              </MailWarning>
+                            ))}
+                        </div>
                         <AgeGroupBadges groups={prof?.age_groups} className="mt-0.5" />
                       </td>
                       <td className="px-4 py-3 text-xs text-muted-foreground tabular-nums">

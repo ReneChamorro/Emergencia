@@ -42,6 +42,8 @@ export interface Case {
   status: CaseStatus;
   assigned_professional_id: string | null;
   notes: string | null;
+  /** Cuando se envio el correo de "caso asignado" al profesional (null = nunca). */
+  assignment_notified_at: string | null;
 }
 
 export interface Appointment {
