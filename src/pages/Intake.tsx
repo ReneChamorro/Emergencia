@@ -360,6 +360,7 @@ export default function Intake() {
                           key={day}
                           type="button"
                           onClick={() => update("available_days", toggleItem(form.available_days, day))}
+                          title={day === "Domingo" ? "Los domingos solo hay consulta disponible para ninos" : undefined}
                           className={cn(
                             "rounded-full border-2 px-3 py-1.5 text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
                             selected
@@ -368,10 +369,18 @@ export default function Intake() {
                           )}
                         >
                           {day}
+                          {day === "Domingo" && (
+                            <span className="ml-1 text-xs font-normal opacity-75">(solo ninos)</span>
+                          )}
                         </button>
                       );
                     })}
                   </div>
+                )}
+                {visibleDays?.includes("Domingo") && (
+                  <p className="text-xs text-muted-foreground">
+                    Los domingos solo tenemos consulta disponible para <strong>ninos</strong>.
+                  </p>
                 )}
               </fieldset>
 
