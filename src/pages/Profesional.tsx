@@ -21,6 +21,7 @@ import { StaffLayout } from "@/components/StaffLayout";
 import { AvailabilityEditor } from "@/components/professional/AvailabilityEditor";
 import { AgeGroupsSettings } from "@/components/professional/AgeGroupsSettings";
 import { ScheduleFollowUpDialog } from "@/components/professional/ScheduleFollowUpDialog";
+import { MyCalendarTab } from "@/components/professional/MyCalendarTab";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -113,6 +114,7 @@ export default function Profesional() {
       <Tabs defaultValue="casos">
         <TabsList className="mb-6">
           <TabsTrigger value="casos">Mis casos</TabsTrigger>
+          <TabsTrigger value="calendario">Calendario</TabsTrigger>
           <TabsTrigger value="disponibilidad">Mi disponibilidad</TabsTrigger>
         </TabsList>
 
@@ -140,6 +142,10 @@ export default function Profesional() {
               ))}
             </div>
           )}
+        </TabsContent>
+
+        <TabsContent value="calendario">
+          <MyCalendarTab />
         </TabsContent>
 
         <TabsContent value="disponibilidad">
