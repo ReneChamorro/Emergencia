@@ -66,6 +66,17 @@ export default function Profesional() {
     setCases(list);
     setAppointments((apptRes.data as Appointment[]) ?? []);
     setLoading(false);
+
+    // Marcar como vistos los casos que aun no lo estaban: la marca "Nuevo" se
+    // basa en el estado ya cargado en `list`, asi que se sigue mostrando en
+    // este render y desaparece recien en la proxima carga.
+    const unseenIds = list.filter((c) => !c.first_viewed_at).map((c) => c.id);
+    if (unseenIds.length > 0) {
+      void supabase
+        .from("cases")
+        .update({ first_viewed_at: new Date().toISOString() })
+        .in("id", unseenIds);
+    }
   }
 
   useEffect(() => { void load(); }, [profile?.id]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -200,10 +211,10 @@ function ProfessionalCaseCard({
         <div className="flex flex-wrap items-center justify-between gap-2">
           <CardTitle>{caseItem.patient_name}</CardTitle>
           <div className="flex gap-2">
-            {!caseItem.assignment_notified_at && (
+            {!caseItem.first_viewed_at && (
               <Badge
                 className="gap-1 border-accent/40 bg-accent/10 text-accent"
-                title="Este caso te fue asignado; puede que aun no te haya llegado el correo de aviso"
+                title="Caso recien asignado que aun no habias visto"
               >
                 <Sparkles className="size-3" /> Nuevo
               </Badge>

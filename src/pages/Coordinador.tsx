@@ -30,7 +30,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { AlertTriangle, Inbox, MailCheck, MailWarning, RefreshCw, Search, UserPlus } from "lucide-react";
+import { AlertTriangle, Eye, EyeOff, Inbox, MailCheck, MailWarning, RefreshCw, Search, UserPlus } from "lucide-react";
 // AlertTriangle sigue usandose en StatCard (urgencia alta)
 
 export default function Coordinador() {
@@ -282,6 +282,22 @@ export default function Coordinador() {
                               >
                                 <title>Aun no se ha enviado el correo al profesional</title>
                               </MailWarning>
+                            ))}
+                          {prof &&
+                            (c.first_viewed_at ? (
+                              <Eye
+                                className="size-3.5 shrink-0 text-success"
+                                aria-label="El profesional ya vio el caso"
+                              >
+                                <title>{`El profesional vio el caso el ${formatDateTime(c.first_viewed_at)}`}</title>
+                              </Eye>
+                            ) : (
+                              <EyeOff
+                                className="size-3.5 shrink-0 text-warning"
+                                aria-label="El profesional aun no ha visto el caso"
+                              >
+                                <title>El profesional aun no ha abierto su panel para ver este caso</title>
+                              </EyeOff>
                             ))}
                         </div>
                         <AgeGroupBadges groups={prof?.age_groups} className="mt-0.5" />

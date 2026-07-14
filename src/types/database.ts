@@ -44,6 +44,8 @@ export interface Case {
   notes: string | null;
   /** Cuando se envio el correo de "caso asignado" al profesional (null = nunca). */
   assignment_notified_at: string | null;
+  /** Cuando el profesional asignado vio el caso por primera vez (null = aun no lo ha visto). */
+  first_viewed_at: string | null;
 }
 
 export interface Appointment {
