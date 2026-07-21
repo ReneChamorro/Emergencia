@@ -15,6 +15,7 @@ import { StaffLayout } from "@/components/StaffLayout";
 import { CaseDetailDialog } from "@/components/coordinator/CaseDetailDialog";
 import { AddCaseDialog } from "@/components/coordinator/AddCaseDialog";
 import { CalendarioTab } from "@/components/coordinator/CalendarioTab";
+import { ProfessionalsWorkloadTab } from "@/components/coordinator/ProfessionalsWorkloadTab";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -124,6 +125,7 @@ export default function Coordinador() {
         <TabsList className="mb-6">
           <TabsTrigger value="casos">Casos</TabsTrigger>
           <TabsTrigger value="calendario">Calendario</TabsTrigger>
+          <TabsTrigger value="profesionales">Profesionales</TabsTrigger>
         </TabsList>
 
         <TabsContent value="casos">
@@ -331,6 +333,10 @@ export default function Coordinador() {
 
         <TabsContent value="calendario">
           <CalendarioTab />
+        </TabsContent>
+
+        <TabsContent value="profesionales">
+          <ProfessionalsWorkloadTab professionals={professionals} cases={cases} />
         </TabsContent>
       </Tabs>
     </StaffLayout>
