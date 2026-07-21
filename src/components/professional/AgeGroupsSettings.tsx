@@ -7,6 +7,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Spinner } from "@/components/ui/spinner";
+import { CollapsedSummaryRow } from "@/components/ui/collapsed-summary-row";
 import { cn } from "@/lib/utils";
 
 const ALL_GROUPS: AgeGroup[] = ["ninos_adolescentes", "adultos", "adultos_mayores"];
@@ -15,12 +16,14 @@ function toggle(list: AgeGroup[], g: AgeGroup): AgeGroup[] {
   return list.includes(g) ? list.filter((x) => x !== g) : [...list, g];
 }
 
-/** Autoservicio: el profesional indica que grupos de edad atiende. */
+/** Autoservicio: el profesional indica que grupos de edad atiende. Se minimiza una vez respondido. */
 export function AgeGroupsSettings() {
   const { profile, refreshProfile } = useAuth();
   const [selected, setSelected] = useState<AgeGroup[]>(profile?.age_groups ?? []);
   const [saving, setSaving] = useState(false);
   const [feedback, setFeedback] = useState<string | null>(null);
+  const alreadyAnswered = (profile?.age_groups?.length ?? 0) > 0;
+  const [expanded, setExpanded] = useState(!alreadyAnswered);
 
   useEffect(() => {
     setSelected(profile?.age_groups ?? []);
@@ -36,8 +39,21 @@ export function AgeGroupsSettings() {
       .eq("id", profile.id);
     setSaving(false);
     if (error) { setFeedback("No se pudo guardar."); return; }
-    setFeedback("Guardado.");
+    setFeedback(null);
     await refreshProfile();
+    if (selected.length > 0) setExpanded(false);
+  }
+
+  if (!expanded) {
+    return (
+      <Card className="mb-4">
+        <CollapsedSummaryRow
+          label="Grupos de edad que atiendo"
+          summary={selected.map((g) => AGE_GROUP_LABEL[g]).join(", ")}
+          onEdit={() => setExpanded(true)}
+        />
+      </Card>
+    );
   }
 
   return (

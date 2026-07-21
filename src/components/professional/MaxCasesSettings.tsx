@@ -1,19 +1,29 @@
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/context/AuthContext";
+import { useLocalFlag } from "@/hooks/useLocalFlag";
 import { Card, CardContent } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Spinner } from "@/components/ui/spinner";
+import { CollapsedSummaryRow } from "@/components/ui/collapsed-summary-row";
 
-/** Autoservicio: el profesional fija cuantas consultas activas acepta a la vez. */
+/** Autoservicio: el profesional fija cuantas consultas activas acepta a la vez. Se minimiza una vez respondido. */
 export function MaxCasesSettings() {
   const { profile, refreshProfile } = useAuth();
   const [value, setValue] = useState(profile?.max_active_cases?.toString() ?? "");
   const [activeCount, setActiveCount] = useState<number | null>(null);
   const [saving, setSaving] = useState(false);
   const [feedback, setFeedback] = useState<string | null>(null);
+  // "null" (sin limite) es una respuesta valida, no distinguible de "aun no
+  // respondido" solo con el dato: se recuerda con una bandera local que se
+  // marca en el primer guardado exitoso.
+  const [answered, setAnswered] = useLocalFlag(
+    profile ? `maxCasesAnswered:${profile.id}` : null,
+    profile?.max_active_cases != null
+  );
+  const [expanded, setExpanded] = useState(!answered);
 
   useEffect(() => {
     setValue(profile?.max_active_cases?.toString() ?? "");
@@ -45,8 +55,26 @@ export function MaxCasesSettings() {
       .eq("id", profile.id);
     setSaving(false);
     if (error) { setFeedback("No se pudo guardar."); return; }
-    setFeedback("Guardado.");
+    setFeedback(null);
     await refreshProfile();
+    setAnswered(true);
+    setExpanded(false);
+  }
+
+  if (!expanded) {
+    return (
+      <Card className="mb-4">
+        <CollapsedSummaryRow
+          label="Maximo de consultas activas"
+          summary={
+            profile?.max_active_cases != null
+              ? `Maximo ${profile.max_active_cases} · tienes ${activeCount ?? "…"} activas`
+              : `Sin limite · tienes ${activeCount ?? "…"} activas`
+          }
+          onEdit={() => setExpanded(true)}
+        />
+      </Card>
+    );
   }
 
   return (
