@@ -219,7 +219,9 @@ export function CaseDetailDialog({ caseItem, professionals, onOpenChange, onSave
       setFeedback(
         /no se puede cambiar de profesional/i.test(error.message)
           ? "No se puede cambiar de profesional: el caso ya tiene una segunda cita agendada."
-          : "No se pudo guardar."
+          : /alcanzo su limite/i.test(error.message)
+            ? error.message
+            : "No se pudo guardar."
       );
       return;
     }

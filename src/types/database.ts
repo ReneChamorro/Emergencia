@@ -16,6 +16,8 @@ export interface Profile {
   active: boolean;
   created_at: string;
   age_groups: AgeGroup[];
+  /** Maximo de consultas activas que el profesional acepta a la vez. null = sin limite. */
+  max_active_cases: number | null;
 }
 
 export interface Case {

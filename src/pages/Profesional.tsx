@@ -20,6 +20,7 @@ import { logCaseEvent } from "@/lib/caseEvents";
 import { StaffLayout } from "@/components/StaffLayout";
 import { AvailabilityEditor } from "@/components/professional/AvailabilityEditor";
 import { AgeGroupsSettings } from "@/components/professional/AgeGroupsSettings";
+import { MaxCasesSettings } from "@/components/professional/MaxCasesSettings";
 import { ScheduleFollowUpDialog } from "@/components/professional/ScheduleFollowUpDialog";
 import { MyCalendarTab } from "@/components/professional/MyCalendarTab";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
@@ -120,6 +121,7 @@ export default function Profesional() {
 
         <TabsContent value="casos">
           <AgeGroupsSettings />
+          <MaxCasesSettings />
           {cases.length === 0 ? (
             <Card>
               <CardContent className="py-12 text-center text-muted-foreground">
