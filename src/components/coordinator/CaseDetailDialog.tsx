@@ -51,6 +51,7 @@ import {
 } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
+import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Spinner } from "@/components/ui/spinner";
@@ -125,7 +126,7 @@ export function CaseDetailDialog({ caseItem, professionals, onOpenChange, onSave
     setAppointments(list);
     // Pre-seleccionar el siguiente numero de contacto
     const maxContact = list.length ? Math.max(...list.map((a) => a.contact_number)) : 0;
-    setApptContactNo(String(Math.min(maxContact + 1, 3)));
+    setApptContactNo(String(maxContact + 1));
   }
 
   // Cargar los bloques de disponibilidad del profesional asignado
@@ -323,7 +324,7 @@ export function CaseDetailDialog({ caseItem, professionals, onOpenChange, onSave
     await logCaseEvent(
       caseItem.id,
       "cita_creada",
-      `Cita agendada: ${formatDateTime(dt.toISOString())} · ${MODALITY_LABEL[apptModality]} (contacto ${apptContactNo}/3)`,
+      `Cita agendada: ${formatDateTime(dt.toISOString())} · ${MODALITY_LABEL[apptModality]} (contacto ${apptContactNo})`,
       profile?.id
     );
     setEventsVersion((v) => v + 1);
@@ -572,7 +573,7 @@ export function CaseDetailDialog({ caseItem, professionals, onOpenChange, onSave
               {appointments.map((a) => (
                 <li key={a.id} className="rounded-md border border-border px-3 py-2 text-sm">
                   <div className="flex flex-wrap items-center justify-between gap-2">
-                    <span>{formatDateTime(a.scheduled_at)} · {MODALITY_LABEL[a.modality]} (contacto {a.contact_number}/3)</span>
+                    <span>{formatDateTime(a.scheduled_at)} · {MODALITY_LABEL[a.modality]} (contacto {a.contact_number})</span>
                     <div className="flex items-center gap-2">
                       <a
                         href={waLink(caseItem.whatsapp, citaAsignadaMsg(a.scheduled_at))}
@@ -707,13 +708,15 @@ export function CaseDetailDialog({ caseItem, professionals, onOpenChange, onSave
                   </Select>
                 </div>
                 <div className="space-y-1.5">
-                  <Label>Contacto</Label>
-                  <Select value={apptContactNo} onValueChange={setApptContactNo}>
-                    <SelectTrigger><SelectValue /></SelectTrigger>
-                    <SelectContent>
-                      {[1, 2, 3].map((n) => <SelectItem key={n} value={String(n)}>Contacto {n}/3</SelectItem>)}
-                    </SelectContent>
-                  </Select>
+                  <Label htmlFor="apptContactNo">Contacto (3 recomendado, mas si se necesita)</Label>
+                  <Input
+                    id="apptContactNo"
+                    type="number"
+                    inputMode="numeric"
+                    min={1}
+                    value={apptContactNo}
+                    onChange={(e) => setApptContactNo(e.target.value)}
+                  />
                 </div>
               </div>
 

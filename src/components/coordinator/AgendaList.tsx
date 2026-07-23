@@ -111,7 +111,7 @@ export function AgendaList({ appointments, loading, from, to, onOpenCase }: Prop
                           <span aria-hidden="true">·</span>
                           <span>{MODALITY_LABEL[a.modality]}</span>
                           <span aria-hidden="true">·</span>
-                          <span>Contacto {a.contact_number}/3</span>
+                          <span>Contacto {a.contact_number}</span>
                           {a.case?.whatsapp && (
                             <WhatsAppLink
                               phone={a.case.whatsapp}

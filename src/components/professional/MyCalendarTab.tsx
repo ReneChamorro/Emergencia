@@ -168,7 +168,7 @@ function ReadOnlyAppointmentRow({ appointment: a }: { appointment: AppointmentFu
       <span className="w-12 shrink-0 text-xs font-semibold tabular-nums text-foreground">{formatTime(a.scheduled_at)}</span>
       <span className="min-w-0 flex-1 truncate font-medium text-foreground">{a.case?.patient_name ?? "—"}</span>
       <span className="shrink-0 text-xs text-muted-foreground">
-        {MODALITY_LABEL[a.modality]} · contacto {a.contact_number}/3
+        {MODALITY_LABEL[a.modality]} · contacto {a.contact_number}
       </span>
       {a.case?.whatsapp && (
         <WhatsAppLink

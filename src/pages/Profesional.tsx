@@ -110,7 +110,7 @@ export default function Profesional() {
   return (
     <StaffLayout
       title={`Hola${profile?.full_name ? ", " + profile.full_name.split(" ")[0] : ""}`}
-      subtitle="Casos asignados a ti. Atencion focalizada: 1 a 3 contactos."
+      subtitle="Casos asignados a ti. Atencion focalizada: 3 contactos recomendados (mas si el caso lo amerita)."
     >
       <Tabs defaultValue="casos">
         <TabsList className="mb-6">
@@ -183,7 +183,8 @@ function ProfessionalCaseCard({
     ? Math.max(...appointments.map((a) => a.contact_number))
     : 0;
   const caseOpen = caseItem.status !== "cerrado" && caseItem.status !== "derivado";
-  const reachedLimit = maxContact >= 3;
+  // 3 contactos es lo recomendado, no un tope duro: se puede seguir agendando si el caso lo amerita.
+  const pastRecommended = maxContact >= 3;
 
   async function save() {
     setSaving(true);
@@ -296,11 +297,7 @@ function ProfessionalCaseCard({
                 <CalendarClock className="size-4 text-accent" /> Citas
               </p>
               {caseOpen && (
-                reachedLimit ? (
-                  <span className="text-xs font-medium text-muted-foreground">
-                    Completados los 3 contactos
-                  </span>
-                ) : (
+                <div className="flex items-center gap-2">
                   <Button
                     variant="outline"
                     size="sm"
@@ -314,13 +311,18 @@ function ProfessionalCaseCard({
                   >
                     <CalendarPlus className="size-3.5" /> Agendar próxima cita
                   </Button>
-                )
+                  {pastRecommended && (
+                    <span className="text-xs font-medium text-muted-foreground">
+                      Supera los 3 contactos recomendados
+                    </span>
+                  )}
+                </div>
               )}
             </div>
             {appointments.map((a) => (
               <div key={a.id} className="flex flex-wrap items-center justify-between gap-2 rounded-md border border-border px-3 py-2 text-sm">
                 <span className="tabular-nums">
-                  {formatDateTime(a.scheduled_at)} · {MODALITY_LABEL[a.modality]} (contacto {a.contact_number}/3)
+                  {formatDateTime(a.scheduled_at)} · {MODALITY_LABEL[a.modality]} (contacto {a.contact_number})
                 </span>
                 <div className="flex items-center gap-2">
                   <a

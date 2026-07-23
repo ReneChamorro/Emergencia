@@ -164,7 +164,7 @@ export function QuickScheduleDialog({
     await logCaseEvent(
       caseId,
       "cita_creada",
-      `Cita agendada con ${profName}: ${formatDateTime(dt.toISOString())} · ${MODALITY_LABEL[modality]} (contacto ${contactNo}/3)`,
+      `Cita agendada con ${profName}: ${formatDateTime(dt.toISOString())} · ${MODALITY_LABEL[modality]} (contacto ${contactNo})`,
       profile?.id
     );
 
@@ -264,19 +264,15 @@ export function QuickScheduleDialog({
 
             {/* Numero de contacto */}
             <div className="space-y-1.5">
-              <Label>Contacto</Label>
-              <Select value={contactNo} onValueChange={setContactNo}>
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {[1, 2, 3].map((n) => (
-                    <SelectItem key={n} value={String(n)}>
-                      Contacto {n}/3
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <Label htmlFor="quick-contact-no">Contacto (3 recomendado, mas si se necesita)</Label>
+              <Input
+                id="quick-contact-no"
+                type="number"
+                inputMode="numeric"
+                min={1}
+                value={contactNo}
+                onChange={(e) => setContactNo(e.target.value)}
+              />
             </div>
           </div>
 

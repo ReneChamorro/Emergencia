@@ -129,7 +129,7 @@ export function CalendarioTab() {
     await logCaseEvent(
       selectedCaseId,
       "cita_creada",
-      `Cita agendada con ${profName}: ${formatDateTime(dt.toISOString())} (contacto 1/3)`,
+      `Cita agendada con ${profName}: ${formatDateTime(dt.toISOString())} (contacto 1)`,
       profile?.id
     );
 

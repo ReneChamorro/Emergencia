@@ -81,8 +81,9 @@ export function ScheduleFollowUpDialog({
 
   const usedNumbers = existingAppointments.map((a) => a.contact_number);
   const maxUsed = usedNumbers.length ? Math.max(...usedNumbers) : 0;
-  const nextContact = Math.min(maxUsed + 1, 3);
-  const reachedLimit = maxUsed >= 3;
+  // 3 contactos es lo recomendado, no un tope duro: se puede seguir agendando si el caso lo amerita.
+  const nextContact = maxUsed + 1;
+  const pastRecommended = maxUsed >= 3;
 
   // Reset al abrir
   useEffect(() => {
@@ -160,7 +161,7 @@ export function ScheduleFollowUpDialog({
     await logCaseEvent(
       caseItem.id,
       "cita_creada",
-      `Cita de seguimiento agendada: ${formatDateTime(dt.toISOString())} · ${MODALITY_LABEL[modality]} (contacto ${nextContact}/3)`,
+      `Cita de seguimiento agendada: ${formatDateTime(dt.toISOString())} · ${MODALITY_LABEL[modality]} (contacto ${nextContact})`,
       professionalId
     );
     onSaved();
@@ -173,16 +174,17 @@ export function ScheduleFollowUpDialog({
         <DialogHeader>
           <DialogTitle>Agendar seguimiento</DialogTitle>
           <DialogDescription>
-            {caseItem.patient_name} · Contacto {nextContact}/3
+            {caseItem.patient_name} · Contacto {nextContact}
           </DialogDescription>
         </DialogHeader>
 
-        {reachedLimit ? (
-          <p className="text-sm text-muted-foreground">
-            Ya se completaron los 3 contactos para este caso.
-          </p>
-        ) : (
-          <div className="space-y-4">
+        <div className="space-y-4">
+          {pastRecommended && (
+            <p className="rounded-md border border-warning/30 bg-warning/5 p-2.5 text-xs text-warning-foreground">
+              Ya se completaron los 3 contactos recomendados para este caso. Puedes seguir
+              agendando si el caso realmente lo necesita.
+            </p>
+          )}
             <div className="grid gap-4 sm:grid-cols-[260px_1fr]">
               {/* Calendario de mes: igual al del coordinador, con tu propia disponibilidad */}
               <div className="rounded-lg border border-border p-3">
@@ -267,19 +269,16 @@ export function ScheduleFollowUpDialog({
             {error && (
               <p role="alert" className="text-sm text-destructive">{error}</p>
             )}
-          </div>
-        )}
+        </div>
 
         <DialogFooter>
           <Button variant="outline" onClick={onClose} disabled={saving}>
             Cancelar
           </Button>
-          {!reachedLimit && (
-            <Button onClick={handleSave} disabled={saving || !selectedStart}>
-              {saving && <Spinner className="text-primary-foreground" />}
-              Agendar
-            </Button>
-          )}
+          <Button onClick={handleSave} disabled={saving || !selectedStart}>
+            {saving && <Spinner className="text-primary-foreground" />}
+            Agendar
+          </Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>

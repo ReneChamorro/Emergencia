@@ -337,7 +337,7 @@ function AppointmentRow({ a, onOpenCase }: { a: AppointmentFull; onOpenCase: () 
             <span aria-hidden="true">·</span>
             <span>{MODALITY_LABEL[a.modality]}</span>
             <span aria-hidden="true">·</span>
-            <span>Contacto {a.contact_number}/3</span>
+            <span>Contacto {a.contact_number}</span>
           </div>
         </div>
 

@@ -524,8 +524,9 @@ function Shell({ children }: { children: React.ReactNode }) {
             con un profesional voluntario.
           </p>
           <p className="mx-auto mt-2 max-w-prose rounded-md border border-accent/30 bg-accent/5 px-3 py-2 text-xs text-muted-foreground">
-            La cantidad de citas (hasta 3 contactos) la definirá el equipo profesional según tu
-            caso. Con enviar el formulario <strong>una sola vez</strong> es suficiente.
+            La cantidad de citas (3 contactos recomendados, mas si el caso lo amerita) la
+            definirá el equipo profesional según tu caso. Con enviar el formulario{" "}
+            <strong>una sola vez</strong> es suficiente.
           </p>
         </div>
         {children}
